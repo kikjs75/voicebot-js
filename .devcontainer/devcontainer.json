@@ -1,0 +1,43 @@
+{
+  "name": "voicebot-dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+  ],
+  "remoteEnv": {
+    "LANG": "ko_KR.UTF-8",
+    "LC_ALL": "ko_KR.UTF-8",
+    "TZ": "Asia/Seoul"
+  },
+  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && echo 'Claude Code installed'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "vmware.vscode-spring-boot",
+        "redhat.vscode-xml",
+        "vscjava.vscode-maven",
+        "humao.rest-client",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "java.configuration.runtimes": [
+          {
+            "name": "JavaSE-21",
+            "default": true
+          }
+        ],
+        "editor.formatOnSave": true,
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    },
+    "jetbrains": {
+      "backend": "IntelliJIdea",
+      "plugins": [
+        "MavenRunHelper"
+      ]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+
+  # ── 인프라 ────────────────────────────────────────────
+  mariadb:
+    image: mariadb:11-lts
+    container_name: voicebot-mariadb
+    environment:
+      MARIADB_DATABASE: voicebot
+      MARIADB_USER: voicebot
+      MARIADB_PASSWORD: voicebot1234
+      MARIADB_ROOT_PASSWORD: root1234
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: voicebot-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+
+  # ── 애플리케이션 ───────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+    container_name: voicebot-app
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-sim}
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/voicebot
+      SPRING_DATASOURCE_USERNAME: voicebot
+      SPRING_DATASOURCE_PASSWORD: voicebot1234
+      SPRING_REDIS_HOST: redis
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - app
+
+volumes:
+  mariadb-data:
+
+networks:
+  default:
+    name: voicebot-net

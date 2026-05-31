@@ -1,0 +1,13 @@
+# 시뮬레이터 모드: docker compose.sim.yml 의 컨테이너를 바라봄
+spring:
+  config:
+    activate:
+      on-profile: sim
+
+voicebot:
+  stt:
+    url: http://stt-simulator:8081
+  llm:
+    url: http://llm-simulator:8082
+  tts:
+    url: http://tts-simulator:8083

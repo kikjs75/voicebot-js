@@ -1,0 +1,16 @@
+# 실제 서비스 모드: 환경변수(.env)에서 API 키 및 URL 주입
+spring:
+  config:
+    activate:
+      on-profile: real
+
+voicebot:
+  stt:
+    url: https://clovaspeech-gw.ncloud.com
+    api-key: ${CLOVA_SPEECH_API_KEY}
+  llm:
+    url: https://api.anthropic.com
+    api-key: ${ANTHROPIC_API_KEY}
+  tts:
+    url: https://naveropenapi.apigw.ntruss.com
+    api-key: ${CLOVA_VOICE_API_KEY}

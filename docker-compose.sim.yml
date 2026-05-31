@@ -1,0 +1,60 @@
+version: '3.9'
+
+# 시뮬레이터 실행: docker compose -f docker-compose.yml -f docker-compose.sim.yml up
+# 인프라만:       docker compose up postgres redis
+
+services:
+
+  # ── STT 시뮬레이터 ──────────────────────────────────────
+  # 역할: 오디오 파일/텍스트 입력 → 텍스트 반환 (Clova Speech API 모킹)
+  stt-simulator:
+    build:
+      context: ./simulators/stt
+    container_name: voicebot-stt-sim
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./simulators/stt/scenarios:/app/scenarios  # 시나리오 텍스트 파일
+    networks:
+      - default
+
+  # ── LLM 시뮬레이터 ──────────────────────────────────────
+  # 역할: 텍스트 입력 → 규칙 기반 응답 반환 (Claude API 모킹)
+  llm-simulator:
+    build:
+      context: ./simulators/llm
+    container_name: voicebot-llm-sim
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./simulators/llm/scenarios:/app/scenarios  # 시나리오 JSON 파일
+    networks:
+      - default
+
+  # ── TTS 시뮬레이터 ──────────────────────────────────────
+  # 역할: 텍스트 입력 → wav 파일 반환 (Clova Voice API 모킹)
+  tts-simulator:
+    build:
+      context: ./simulators/tts
+    container_name: voicebot-tts-sim
+    ports:
+      - "8083:8083"
+    networks:
+      - default
+
+  # ── Call 시뮬레이터 ─────────────────────────────────────
+  # 역할: 웹 UI로 콜 발신/수신 시뮬레이션 (SIP/VoIP 모킹)
+  call-simulator:
+    build:
+      context: ./simulators/call
+    container_name: voicebot-call-sim
+    ports:
+      - "8084:8084"   # API
+      - "8085:8085"   # 웹 UI
+    networks:
+      - default
+
+networks:
+  default:
+    name: voicebot-net
+    external: true

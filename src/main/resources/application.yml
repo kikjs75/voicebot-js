@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: voicebot
+  datasource:
+    url: jdbc:mariadb://localhost:3306/voicebot
+    username: voicebot
+    password: voicebot1234
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.voicebot: DEBUG
+
+# 외부 서비스 엔드포인트 (profile 에서 override)
+voicebot:
+  stt:
+    url: ${STT_URL:http://localhost:8081}
+    api-key: ${STT_API_KEY:sim-key}
+  llm:
+    url: ${LLM_URL:http://localhost:8082}
+    api-key: ${LLM_API_KEY:sim-key}
+  tts:
+    url: ${TTS_URL:http://localhost:8083}
+    api-key: ${TTS_API_KEY:sim-key}
