@@ -3,7 +3,6 @@ FROM mcr.microsoft.com/devcontainers/java:21-bookworm
 # 한국어 로케일
 RUN apt-get update && apt-get install -y locales \
     && locale-gen ko_KR.UTF-8 \
-    && update-locale LANG=ko_KR.UTF-8 LC_ALL=ko_KR.UTF-8 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV LANG=ko_KR.UTF-8
