@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voicebot Call Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+    header {
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 18px; font-weight: 600; color: #f1f5f9; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; animation: blink 1.5s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .container { max-width: 900px; margin: 32px auto; padding: 0 24px; display: grid; gap: 24px; }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .card h2 { font-size: 14px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    label { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px; }
+    input, select {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #f1f5f9;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: #6366f1; }
+
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      width: 100%;
+      margin-top: 4px;
+    }
+    button:hover { background: #4f46e5; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.danger { background: #dc2626; }
+    button.danger:hover { background: #b91c1c; }
+    button.small { padding: 6px 12px; font-size: 12px; width: auto; margin-top: 0; }
+
+    .status-bar {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+    .status-bar.show { display: block; }
+    .status-bar.calling  { background: #1d4ed8; border: 1px solid #3b82f6; }
+    .status-bar.success  { background: #166534; border: 1px solid #22c55e; }
+    .status-bar.error    { background: #7f1d1d; border: 1px solid #ef4444; }
+
+    /* 콜 이력 테이블 */
+    .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 8px 12px; color: #64748b; font-weight: 500; border-bottom: 1px solid #334155; }
+    td { padding: 10px 12px; border-bottom: 1px solid #1e293b; vertical-align: top; }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge.completed { background: #166534; color: #86efac; }
+    .badge.ringing   { background: #1d4ed8; color: #93c5fd; }
+    .badge.error     { background: #7f1d1d; color: #fca5a5; }
+
+    .result-cell { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #94a3b8; font-size: 12px; }
+    .empty-state { text-align: center; padding: 40px; color: #475569; }
+
+    /* 시나리오 패널 */
+    .scenario-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+    .scenario-btn {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 14px 12px;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      width: 100%;
+      color: #e2e8f0;
+    }
+    .scenario-btn:hover { border-color: #6366f1; background: #1e1b4b; }
+    .scenario-btn .name { font-size: 13px; font-weight: 600; }
+    .scenario-btn .desc { font-size: 11px; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="dot"></div>
+  <h1>📞 Voicebot Call Simulator</h1>
+</header>
+
+<div class="container">
+
+  <!-- 콜 발신 폼 -->
+  <div class="card">
+    <h2>콜 발신</h2>
+    <div class="form-row">
+      <div>
+        <label>전화번호</label>
+        <input type="text" id="phoneNumber" value="01012345678" placeholder="01012345678">
+      </div>
+      <div>
+        <label>시나리오</label>
+        <select id="scenario">
+          <option value="default">default - 기본 문의</option>
+          <option value="billing">billing - 요금 문의</option>
+          <option value="cancel">cancel - 해지 문의</option>
+          <option value="internet">internet - 인터넷 장애</option>
+          <option value="change">change - 정보 변경</option>
+        </select>
+      </div>
+    </div>
+    <button id="callBtn" onclick="startCall()">📞 콜 발신</button>
+    <div class="status-bar" id="statusBar"></div>
+  </div>
+
+  <!-- 빠른 시나리오 -->
+  <div class="card">
+    <h2>빠른 시나리오</h2>
+    <div class="scenario-grid">
+      <div class="scenario-btn" onclick="quickCall('01011111111','billing')">
+        <div class="name">💰 요금 문의</div>
+        <div class="desc">이번 달 청구서 확인</div>
+      </div>
+      <div class="scenario-btn" onclick="quickCall('01022222222','cancel')">
+        <div class="name">🚪 해지 문의</div>
+        <div class="desc">서비스 해지 신청</div>
+      </div>
+      <div class="scenario-btn" onclick="quickCall('01033333333','internet')">
+        <div class="name">🌐 인터넷 장애</div>
+        <div class="desc">속도 저하 신고</div>
+      </div>
+      <div class="scenario-btn" onclick="quickCall('01044444444','change')">
+        <div class="name">✏️ 정보 변경</div>
+        <div class="desc">주소/연락처 변경</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 콜 이력 -->
+  <div class="card">
+    <div class="history-header">
+      <h2 style="margin-bottom:0">콜 이력</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="small" onclick="loadHistory()">🔄 새로고침</button>
+        <button class="small danger" onclick="clearHistory()">🗑️ 초기화</button>
+      </div>
+    </div>
+    <div id="historyContainer">
+      <div class="empty-state">콜 이력이 없습니다</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API = 'http://localhost:8084';
+
+  async function startCall() {
+    const phoneNumber = document.getElementById('phoneNumber').value.trim();
+    const scenario   = document.getElementById('scenario').value;
+    await doCall(phoneNumber, scenario);
+  }
+
+  async function quickCall(phoneNumber, scenario) {
+    document.getElementById('phoneNumber').value = phoneNumber;
+    document.getElementById('scenario').value = scenario;
+    await doCall(phoneNumber, scenario);
+  }
+
+  async function doCall(phoneNumber, scenario) {
+    const btn = document.getElementById('callBtn');
+    const bar = document.getElementById('statusBar');
+
+    btn.disabled = true;
+    showStatus('calling', `📞 발신 중... ${phoneNumber} (시나리오: ${scenario})`);
+
+    try {
+      const res = await fetch(`${API}/call/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber, scenario }),
+      });
+      const data = await res.json();
+
+      if (data.status === 'completed') {
+        showStatus('success', `✅ 완료 [${data.callId}] ${JSON.stringify(data.result || '')}`);
+      } else {
+        showStatus('error', `⚠️ 오류 [${data.callId}] ${data.error || 'Spring Boot 미연결 (시뮬레이터 자체 동작 중)'}`);
+      }
+    } catch (e) {
+      showStatus('error', `❌ API 서버 연결 실패: ${e.message}`);
+    } finally {
+      btn.disabled = false;
+      loadHistory();
+    }
+  }
+
+  function showStatus(type, msg) {
+    const bar = document.getElementById('statusBar');
+    bar.className = `status-bar show ${type}`;
+    bar.textContent = msg;
+  }
+
+  async function loadHistory() {
+    try {
+      const res = await fetch(`${API}/calls`);
+      const calls = await res.json();
+      renderHistory(calls);
+    } catch (e) {
+      console.error('이력 로드 실패', e);
+    }
+  }
+
+  function renderHistory(calls) {
+    const el = document.getElementById('historyContainer');
+    if (calls.length === 0) {
+      el.innerHTML = '<div class="empty-state">콜 이력이 없습니다</div>';
+      return;
+    }
+    el.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Call ID</th>
+            <th>전화번호</th>
+            <th>시나리오</th>
+            <th>상태</th>
+            <th>시작</th>
+            <th>결과</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${calls.map(c => `
+            <tr>
+              <td style="font-family:monospace;color:#a5b4fc">${c.callId}</td>
+              <td>${c.phoneNumber}</td>
+              <td>${c.scenario}</td>
+              <td><span class="badge ${c.status}">${c.status}</span></td>
+              <td style="color:#64748b;font-size:12px">${c.startedAt ? c.startedAt.replace('T',' ').substring(0,19) : '-'}</td>
+              <td class="result-cell" title="${JSON.stringify(c.result || '')}">${c.result ? JSON.stringify(c.result).substring(0,60) : '-'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  async function clearHistory() {
+    if (!confirm('콜 이력을 초기화할까요?')) return;
+    await fetch(`${API}/calls`, { method: 'DELETE' });
+    loadHistory();
+  }
+
+  // 5초마다 자동 새로고침
+  loadHistory();
+  setInterval(loadHistory, 5000);
+</script>
+</body>
+</html>

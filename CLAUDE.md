@@ -62,6 +62,31 @@ TtsService (interface)
 - 로그에는 항상 `callId`를 포함해야 한다.
 
 ---
+### 4. 성능 측정 로그
+
+STT → LLM → TTS 각 단계의 처리 시간을 반드시 측정하고 기록한다.
+
+- 측정 단위: 밀리초(ms)
+- 로그 레벨: `log.info`
+- 형식: `[서비스명-PERF] callId={} elapsed={}ms`
+
+**구현 패턴**
+\```java
+long start = System.currentTimeMillis();
+String result = sttService.recognize(audio, callId);
+log.info("[STT-PERF] callId={} elapsed={}ms", callId, System.currentTimeMillis() - start);
+\```
+
+**측정 대상**
+
+| 단계 | 로그 태그 | 목표 응답시간 |
+|------|-----------|-------------|
+| STT  | `[STT-PERF]`  | < 1,000ms |
+| LLM  | `[LLM-PERF]`  | < 3,000ms |
+| TTS  | `[TTS-PERF]`  | < 1,000ms |
+| 전체 파이프라인 | `[CALL-PERF]` | < 5,000ms |
+
+---
 
 ## 패키지 구조
 
@@ -140,3 +165,9 @@ docker compose -f docker-compose.yml -f docker-compose.sim.yml up -d
 ```bash
 SPRING_PROFILES_ACTIVE=real ./mvnw spring-boot:run
 ```
+
+## 상세 문서 참조
+@docs/ARCHITECTURE.md
+@docs/SIMULATOR.md
+@docs/SETUP.md
+@docs/dev-environment.md
