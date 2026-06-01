@@ -11,7 +11,7 @@
     "LC_ALL": "ko_KR.UTF-8",
     "TZ": "Asia/Seoul"
   },
-  "postCreateCommand": "npm install -g @anthropic-ai/claude-code && echo 'Claude Code installed'",
+  "postCreateCommand": "echo 'Dev container ready'",
   "customizations": {
     "vscode": {
       "extensions": [
