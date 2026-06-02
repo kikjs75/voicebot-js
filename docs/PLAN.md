@@ -146,7 +146,7 @@ record SttResult(String text, boolean isFinal) {}
 | Phase | 상태 |
 |---|---|
 | Phase 1 — 외부 API 설정 가이드 | ✅ 완료 |
-| Phase 2 — sim profile 완성 | 대기 |
+| Phase 2 — sim profile 완성 | ✅ 완료 |
 | Phase 3 — E2E 동작 확인 (sim) | 대기 |
 | Phase 4 — real profile 구현 | 대기 |
 | Phase 5 — E2E 동작 확인 (real) | 대기 |
