@@ -40,9 +40,16 @@ public class CallHandler {
                 .map(SttService.SttResult::text)
                 .collectList()
                 .map(parts -> String.join(" ", parts))
+                .timeout(Duration.ofSeconds(30))
+                .onErrorReturn("")
                 .block();
         long sttElapsed = System.currentTimeMillis() - sttStart;
-        log.info("[STT-PERF] callId={} elapsed={}ms", callId, sttElapsed);
+        log.info("[STT-PERF] callId={} elapsed={}ms text=\"{}\"", callId, sttElapsed, sttText);
+
+        if (sttText == null || sttText.isBlank()) {
+            log.warn("[STT] callId={} 인식 결과 없음 — 음성 없음 또는 타임아웃", callId);
+            return ttsService.synthesize("죄송합니다, 말씀을 잘 듣지 못했습니다. 다시 말씀해 주세요.", callId);
+        }
 
         // 2. 세션 조회/생성, 사용자 발화 추가
         CallSession session = getOrCreateSession(callId);
