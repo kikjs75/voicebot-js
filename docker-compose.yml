@@ -4,7 +4,7 @@ services:
 
   # ── 인프라 ────────────────────────────────────────────
   mariadb:
-    image: mariadb:11-lts
+    image: mariadb:11
     container_name: voicebot-mariadb
     environment:
       MARIADB_DATABASE: voicebot

@@ -40,18 +40,24 @@ app.post('/call/start', async (req, res) => {
   callHistory.unshift(record);
 
   try {
-    const response = await axios.post(`${VOICEBOT_URL}/call/incoming`, {
-      callId,
-      phoneNumber,
-      scenario,
-    }, { timeout: 30000 });
+    // 더미 오디오(무음 PCM) 전송 — 실제 전화 수신 시뮬레이션
+    const dummyAudio = Buffer.alloc(1600, 0); // 100ms @ 8kHz 16bit
+
+    const response = await axios.post(`${VOICEBOT_URL}/call/incoming`, dummyAudio, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Call-Id': callId,
+      },
+      responseType: 'arraybuffer',
+      timeout: 30000,
+    });
 
     record.status = 'completed';
-    record.result = response.data;
+    record.result = { audioBytes: response.data.byteLength };
     record.endedAt = new Date().toISOString();
 
-    console.log(`[CALL] 완료 callId=${callId}`);
-    res.json({ callId, status: 'completed', result: response.data });
+    console.log(`[CALL] 완료 callId=${callId} responseBytes=${response.data.byteLength}`);
+    res.json({ callId, status: 'completed', result: record.result });
 
   } catch (err) {
     const errMsg = err.response

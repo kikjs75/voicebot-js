@@ -13,8 +13,6 @@ services:
     container_name: voicebot-stt-sim
     ports:
       - "8081:8081"
-    volumes:
-      - ./simulators/stt/scenarios:/app/scenarios  # 시나리오 텍스트 파일
     networks:
       - default
 
@@ -26,8 +24,6 @@ services:
     container_name: voicebot-llm-sim
     ports:
       - "8082:8082"
-    volumes:
-      - ./simulators/llm/scenarios:/app/scenarios  # 시나리오 JSON 파일
     networks:
       - default
 
@@ -51,6 +47,11 @@ services:
     ports:
       - "8084:8084"   # API
       - "8085:8085"   # 웹 UI
+    environment:
+      # 로컬 devcontainer에서 실행 중인 Spring Boot 앱을 가리킴
+      VOICEBOT_URL: http://host.docker.internal:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - default
 

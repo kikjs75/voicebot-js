@@ -1,13 +1,18 @@
-# 시뮬레이터 모드: docker compose.sim.yml 의 컨테이너를 바라봄
+# 시뮬레이터 모드: docker compose 컨테이너를 바라봄 (voicebot-net)
 spring:
   config:
     activate:
       on-profile: sim
+  datasource:
+    url: jdbc:mariadb://${DB_HOST:mariadb}:3306/voicebot
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
 
 voicebot:
   stt:
-    url: http://stt-simulator:8081
+    url: ${STT_URL:http://stt-simulator:8081}
   llm:
-    url: http://llm-simulator:8082
+    url: ${LLM_URL:http://llm-simulator:8082}
   tts:
-    url: http://tts-simulator:8083
+    url: ${TTS_URL:http://tts-simulator:8083}
