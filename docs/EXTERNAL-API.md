@@ -323,12 +323,14 @@ PoC 단계에서 비용 $0으로 운영 가능. Neural2 기준 월 100만자 무
 
 ### GCP 설정 경로
 
+> 상세 단계별 설정 가이드: **[docs/GCP-TTS-SETUP.md](./GCP-TTS-SETUP.md)**
+
 ```
-1. GCP 콘솔 → APIs & Services → [Library] → "Cloud Text-to-Speech API" → Enable
-2. IAM & Admin → Service Accounts → [+ CREATE SERVICE ACCOUNT]
-   - 이름: tts-bot (또는 원하는 이름)
-   - 역할: "Cloud Text-to-Speech 사용자" (roles/cloudtexttospeech.user)
-3. 생성된 계정 클릭 → [Keys] 탭 → [ADD KEY] → JSON → 다운로드
+1. GCP 콘솔 → APIs & Services → 라이브러리 → "Cloud Text-to-Speech API" → 사용
+2. IAM 및 관리자 → 서비스 계정 → [+ 서비스 계정 만들기]
+   - 이름: tts-service-account
+   - 역할: Cloud Text-to-Speech 사용자
+3. 생성된 계정 → [키] 탭 → [키 추가] → JSON → 다운로드
 4. JSON 파일을 서버 안전한 경로에 배치 (절대 Git 커밋 금지)
 5. 환경변수: GOOGLE_APPLICATION_CREDENTIALS=/path/to/gcp-key.json
 ```

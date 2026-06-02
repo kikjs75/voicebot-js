@@ -57,6 +57,8 @@ ko-KR-Neural2-B    (남성) ← PoC 추천
 - 한국어 품질이 CLOVA 대비 살짝 부자연스러울 수 있음
 - GCP 서비스 계정 JSON 키 파일 발급 및 관리 필요
 
+> 서비스 계정 발급 절차: **[docs/GCP-TTS-SETUP.md](./GCP-TTS-SETUP.md)**
+
 ---
 
 ### 2. CLOVA Voice — **한국어 품질 최우선 시**
