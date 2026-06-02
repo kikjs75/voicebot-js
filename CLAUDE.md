@@ -22,9 +22,11 @@
 | DB | MariaDB 11 |
 | Cache | Redis 7 |
 | HTTP Client | WebClient (WebFlux) |
-| 외부 STT | Clova Speech (profile: real) |
+| 외부 STT | RTZR WebSocket (profile: real) |
 | 외부 LLM | Claude API - Anthropic (profile: real) |
-| 외부 TTS | Clova Voice (profile: real) |
+| 외부 TTS | Google Cloud TTS (profile: real) |
+| WebSocket Client | OkHttpClient (RTZR STT) |
+| GCP Auth | google-auth-library-oauth2-http |
 
 ---
 
@@ -37,16 +39,16 @@
 
 ```
 SttService (interface)
-  ├── SimulatorSttService  @Profile("sim")
-  └── ClovaSpeechSttService @Profile("real")
+  ├── SimulatorSttService      @Profile("sim")
+  └── RtzrWebSocketSttService  @Profile("real")
 
 LlmService (interface)
   ├── SimulatorLlmService  @Profile("sim")
   └── ClaudeApiLlmService  @Profile("real")
 
 TtsService (interface)
-  ├── SimulatorTtsService  @Profile("sim")
-  └── ClovaVoiceTtsService @Profile("real")
+  ├── SimulatorTtsService    @Profile("sim")
+  └── GoogleCloudTtsService  @Profile("real")
 ```
 
 ### 2. Profile 전환
@@ -101,7 +103,7 @@ src/main/java/com/voicebot/
 │   ├── stt/
 │   │   ├── SttService.java
 │   │   ├── SimulatorSttService.java
-│   │   └── ClovaSpeechSttService.java
+│   │   └── RtzrWebSocketSttService.java
 │   ├── llm/
 │   │   ├── LlmService.java
 │   │   ├── SimulatorLlmService.java
@@ -109,7 +111,7 @@ src/main/java/com/voicebot/
 │   └── tts/
 │       ├── TtsService.java
 │       ├── SimulatorTtsService.java
-│       └── ClovaVoiceTtsService.java
+│       └── GoogleCloudTtsService.java
 ├── domain/                  # JPA Entity
 │   └── CallRecord.java
 ├── repository/
@@ -133,14 +135,15 @@ src/main/java/com/voicebot/
 
 ```
 # 시뮬레이터 URL (sim profile)
-STT_URL=http://localhost:8081
-LLM_URL=http://localhost:8082
-TTS_URL=http://localhost:8083
+STT_URL=http://stt-simulator:8081
+LLM_URL=http://llm-simulator:8082
+TTS_URL=http://tts-simulator:8083
 
-# 실제 서비스 API 키 (real profile)
-CLOVA_SPEECH_API_KEY=
+# real profile
+RTZR_CLIENT_ID=
+RTZR_CLIENT_SECRET=
 ANTHROPIC_API_KEY=
-CLOVA_VOICE_API_KEY=
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/gcp-key.json
 ```
 
 ---

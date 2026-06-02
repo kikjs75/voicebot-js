@@ -16,7 +16,7 @@ import java.util.Map;
 
 @Slf4j
 @Service
-@Profile("real-google")
+@Profile("real")
 @RequiredArgsConstructor
 public class GoogleCloudTtsService implements TtsService {
 

@@ -12,7 +12,7 @@ import java.util.Map;
 
 @Slf4j
 @Service
-@Profile({"real", "real-grpc"})
+@Profile("real")
 @RequiredArgsConstructor
 public class ClaudeApiLlmService implements LlmService {
 

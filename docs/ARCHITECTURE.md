@@ -22,7 +22,7 @@
 │           외부/시뮬레이터 서비스                    │
 │                                                  │
 │  STT           LLM              TTS              │
-│  Clova Speech  Claude API       Clova Voice      │
+│  RTZR (WS)     Claude API       Google Cloud TTS │
 │  (sim: :8081)  (sim: :8082)     (sim: :8083)     │
 │                                                  │
 │  Call Simulator (:8084/:8085 UI)                 │
@@ -57,4 +57,4 @@ CallHandler.process()
 | Profile | STT | LLM | TTS |
 |---|---|---|---|
 | `sim` | SimulatorSttService → :8081 | SimulatorLlmService → :8082 | SimulatorTtsService → :8083 |
-| `real` | ClovaSpeechSttService | ClaudeApiLlmService | ClovaVoiceTtsService |
+| `real` | RtzrWebSocketSttService | ClaudeApiLlmService | GoogleCloudTtsService |

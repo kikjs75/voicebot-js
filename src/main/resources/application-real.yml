@@ -1,8 +1,13 @@
-# real profile — RTZR WebSocket STT + CLOVA Voice TTS + Claude LLM
+# real profile — RTZR WebSocket STT + Google Cloud TTS + Claude LLM
 spring:
   config:
     activate:
       on-profile: real
+  datasource:
+    url: jdbc:mariadb://${DB_HOST:mariadb}:3306/voicebot
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
 
 voicebot:
   stt:
@@ -16,9 +21,9 @@ voicebot:
     api-key: ${ANTHROPIC_API_KEY}
     model: claude-sonnet-4-6
   tts:
-    url: https://naveropenapi.apigw.ntruss.com/tts-premium/v1/tts
-    client-id: ${CLOVA_VOICE_CLIENT_ID}
-    client-secret: ${CLOVA_VOICE_CLIENT_SECRET}
-    speaker: nara
-    format: wav
-    sampling-rate: 8000
+    google:
+      credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS}
+      language-code: ko-KR
+      voice-name: ko-KR-Neural2-A
+      audio-encoding: LINEAR16
+      sample-rate-hertz: 8000

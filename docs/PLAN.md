@@ -26,10 +26,9 @@
 | `call/CallSession.java` | 필수 | 콜 상태 모델 |
 | `domain/CallRecord.java` | 필수 | JPA 엔티티 |
 | `repository/CallRecordRepository.java` | 필수 | DB 저장 |
-| `service/stt/RtzrWebSocketSttService.java` | real profile | RTZR WebSocket STT (기본) |
-| `service/stt/ClovaSpeechSttService.java` | real-grpc profile | CLOVA Speech gRPC STT (선택) |
+| `service/stt/RtzrWebSocketSttService.java` | real profile | RTZR WebSocket STT |
 | `service/llm/ClaudeApiLlmService.java` | real profile | Anthropic API 연동 |
-| `service/tts/ClovaVoiceTtsService.java` | real profile | CLOVA Voice TTS 연동 |
+| `service/tts/GoogleCloudTtsService.java` | real profile | Google Cloud TTS 연동 |
 
 ---
 
