@@ -1,8 +1,12 @@
 package com.voicebot.config;
 
+import okhttp3.OkHttpClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.concurrent.TimeUnit;
 
 @Configuration
 public class WebClientConfig {
@@ -11,7 +15,16 @@ public class WebClientConfig {
     public WebClient webClient() {
         return WebClient.builder()
                 .codecs(config -> config.defaultCodecs()
-                        .maxInMemorySize(10 * 1024 * 1024)) // 10MB (오디오 파일 대비)
+                        .maxInMemorySize(10 * 1024 * 1024))
+                .build();
+    }
+
+    @Bean
+    @Profile("real")
+    public OkHttpClient okHttpClient() {
+        return new OkHttpClient.Builder()
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .readTimeout(0, TimeUnit.MILLISECONDS) // 스트리밍: 타임아웃 없음
                 .build();
     }
 }
