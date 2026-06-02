@@ -1,16 +1,17 @@
-# real profile — RTZR WebSocket STT + CLOVA Voice TTS + Claude LLM
+# real-grpc profile — CLOVA Speech gRPC STT + CLOVA Voice TTS + Claude LLM
 spring:
   config:
     activate:
-      on-profile: real
+      on-profile: real-grpc
 
 voicebot:
   stt:
-    rtzr:
-      client-id: ${RTZR_CLIENT_ID}
-      client-secret: ${RTZR_CLIENT_SECRET}
-      sample-rate: 8000
-      encoding: LINEAR16
+    clova-speech:
+      host: clovaspeech-gw.ncloud.com
+      port: 50051
+      secret-key: ${CLOVA_SPEECH_SECRET_KEY}
+      language: ko
+      sample-rate: 16000
   llm:
     url: https://api.anthropic.com
     api-key: ${ANTHROPIC_API_KEY}
