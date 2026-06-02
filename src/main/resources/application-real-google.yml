@@ -1,0 +1,25 @@
+# real-google profile — Google Cloud TTS + RTZR WebSocket STT + Claude LLM
+# 인증: 서비스 계정 JSON 키 (OAuth2) — API 키 방식은 TTS에서 동작 안 함
+spring:
+  config:
+    activate:
+      on-profile: real-google
+
+voicebot:
+  stt:
+    rtzr:
+      client-id: ${RTZR_CLIENT_ID}
+      client-secret: ${RTZR_CLIENT_SECRET}
+      sample-rate: 8000
+      encoding: LINEAR16
+  llm:
+    url: https://api.anthropic.com
+    api-key: ${ANTHROPIC_API_KEY}
+    model: claude-sonnet-4-6
+  tts:
+    google:
+      credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS}
+      language-code: ko-KR
+      voice-name: ko-KR-Neural2-A
+      audio-encoding: LINEAR16
+      sample-rate-hertz: 8000

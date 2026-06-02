@@ -297,7 +297,120 @@ CLOVA_VOICE_CLIENT_SECRET=
 
 ---
 
-## 4. Anthropic Claude API (LLM, `real` / `real-grpc` profile 공통)
+## 4. Google Cloud TTS (REST — `real-google` profile, PoC 무료 대안)
+
+### 개요
+
+PoC 단계에서 비용 $0으로 운영 가능. Neural2 기준 월 100만자 무료.  
+상세 업체 비교: `docs/TTS-VENDOR-REVIEW.md` 참조.
+
+> ⚠️ **중요**: Google Cloud TTS는 **API 키 방식이 동작하지 않는다**.  
+> Cloud AI API 계열은 **서비스 계정(OAuth2) 방식만** 지원한다.
+
+### 인증 방식: 서비스 계정 OAuth2 (유일한 방법)
+
+| 방식 | 설명 | 용도 |
+|---|---|---|
+| API 키 (`?key=...`) | ❌ TTS에서 미지원 | Maps, YouTube 등 일부 공개 API만 |
+| 서비스 계정 OAuth2 | ✅ **유일하게 동작** | Cloud AI API 전체 |
+
+```
+서비스 계정 JSON 키 파일
+  → google-auth-library-java 로 OAuth2 Access Token 발급 (1시간 만료)
+  → credentials.refreshIfExpired() 로 자동 갱신
+  → Authorization: Bearer {token}
+```
+
+### GCP 설정 경로
+
+```
+1. GCP 콘솔 → APIs & Services → [Library] → "Cloud Text-to-Speech API" → Enable
+2. IAM & Admin → Service Accounts → [+ CREATE SERVICE ACCOUNT]
+   - 이름: tts-bot (또는 원하는 이름)
+   - 역할: "Cloud Text-to-Speech 사용자" (roles/cloudtexttospeech.user)
+3. 생성된 계정 클릭 → [Keys] 탭 → [ADD KEY] → JSON → 다운로드
+4. JSON 파일을 서버 안전한 경로에 배치 (절대 Git 커밋 금지)
+5. 환경변수: GOOGLE_APPLICATION_CREDENTIALS=/path/to/gcp-key.json
+```
+
+### 엔드포인트
+
+```
+POST https://texttospeech.googleapis.com/v1/text:synthesize
+Content-Type: application/json
+Authorization: Bearer {access_token}    ← 서비스 계정 OAuth2 토큰
+```
+
+### 요청 형식
+
+```json
+{
+  "input": { "text": "안녕하세요, 무엇을 도와드릴까요?" },
+  "voice": {
+    "languageCode": "ko-KR",
+    "name": "ko-KR-Neural2-A"
+  },
+  "audioConfig": {
+    "audioEncoding": "LINEAR16",
+    "sampleRateHertz": 8000
+  }
+}
+```
+
+| 파라미터 | 음성봇 권장값 | 설명 |
+|---|---|---|
+| `voice.name` | `ko-KR-Neural2-A` | 여성 한국어 Neural2 (무료 티어) |
+| `audioConfig.audioEncoding` | `LINEAR16` | WAV raw PCM |
+| `audioConfig.sampleRateHertz` | `8000` | 전화 G.711 직접 사용 가능 |
+
+### 응답 형식
+
+```json
+{ "audioContent": "UklGRi..." }
+```
+
+> 응답이 **base64 인코딩** 문자열. `Base64.getDecoder().decode(audioContent)` 로 `byte[]` 변환 필요.
+
+### Java 구현 핵심 패턴
+
+```java
+// 서비스 계정 JSON 로드 + 스코프 지정
+GoogleCredentials credentials = GoogleCredentials
+    .fromStream(new FileInputStream(credentialsPath))
+    .createScoped("https://www.googleapis.com/auth/cloud-platform");
+
+// 호출 시마다: 만료 체크 → 자동 갱신 → 토큰 추출
+credentials.refreshIfExpired();  // 1시간 만료 자동 갱신, 별도 스케줄러 불필요
+String token = credentials.getAccessToken().getTokenValue();
+```
+
+### 요금
+
+| 모델 | 100만자 요금 | 월 무료 티어 |
+|---|---|---|
+| Neural2 | $16 | **100만자 무료** ← PoC 추천 |
+| WaveNet | $4 | 100만자 무료 |
+| Standard | $4 | 400만자 무료 |
+
+### 환경변수
+
+```
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/gcp-key.json
+```
+
+### pom.xml 추가 의존성
+
+```xml
+<dependency>
+    <groupId>com.google.auth</groupId>
+    <artifactId>google-auth-library-oauth2-http</artifactId>
+    <version>1.30.1</version>
+</dependency>
+```
+
+---
+
+## 5. Anthropic Claude API (LLM, `real` / `real-grpc` profile 공통)
 
 ### API 키 발급
 
