@@ -126,9 +126,12 @@ export default function CtiSimulator() {
   const [audioFileName, setAudioFileName] = useState("");
   const [waveActive, setWaveActive] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [micDevices, setMicDevices] = useState([]);
+  const [selectedMicId, setSelectedMicId] = useState("");
 
   const wsRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
+  const audioContextRef = useRef(null);
   const audioFileRef = useRef(null);
   const logEndRef = useRef(null);
 
@@ -144,6 +147,21 @@ export default function CtiSimulator() {
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs]);
+
+  useEffect(() => {
+    const loadDevices = async () => {
+      // 권한이 있어야 label이 채워지므로 먼저 임시 스트림 요청
+      try {
+        const tmp = await navigator.mediaDevices.getUserMedia({ audio: true });
+        tmp.getTracks().forEach((t) => t.stop());
+      } catch {}
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices.filter((d) => d.kind === "audioinput");
+      setMicDevices(mics);
+      if (mics.length > 0 && !selectedMicId) setSelectedMicId(mics[0].deviceId);
+    };
+    loadDevices();
+  }, []);
 
   // WebSocket 연결
   const connectWs = useCallback(() => {
@@ -230,7 +248,8 @@ export default function CtiSimulator() {
     setWaveActive(false);
     addLog("event", "📵 통화 종료");
 
-    mediaRecorderRef.current?.stop();
+    audioContextRef.current?.close();
+    audioContextRef.current = null;
 
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(
@@ -242,25 +261,61 @@ export default function CtiSimulator() {
     setTimeout(() => setStatus("idle"), 2000);
   };
 
-  // 마이크 스트리밍
+  // 마이크 스트리밍 — Web Audio API로 raw PCM 16kHz 16-bit mono 전송 (RTZR 요구 포맷)
   const startMicStream = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm;codecs=opus",
-      });
+      if (!navigator.mediaDevices?.getUserMedia) {
+        addLog("error", "이 브라우저는 마이크를 지원하지 않습니다 (HTTPS 또는 localhost 필요)");
+        setStatus("ended");
+        setTimeout(() => setStatus("idle"), 2000);
+        return;
+      }
+      const audioConstraints = {
+        channelCount: 1,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        ...(selectedMicId ? { deviceId: { exact: selectedMicId } } : {}),
+      };
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+      const usedTrack = stream.getAudioTracks()[0];
+      addLog("event", `🎙 장치: ${usedTrack.label || "알 수 없음"}`);
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
-          e.data.arrayBuffer().then((buf) => wsRef.current.send(buf));
+      addLog("event", "🎤 마이크 권한 허용됨");
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioCtx({ sampleRate: 16000 });
+      await audioContext.resume();
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+      processor.onaudioprocess = (e) => {
+        const float32 = e.inputBuffer.getChannelData(0);
+        const int16 = new Int16Array(float32.length);
+        let maxVal = 0;
+        for (let i = 0; i < float32.length; i++) {
+          int16[i] = Math.max(-32768, Math.min(32767, float32[i] * 32768));
+          if (Math.abs(float32[i]) > maxVal) maxVal = Math.abs(float32[i]);
+        }
+        setAudioLevel(Math.round(maxVal * 100));
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(int16.buffer);
         }
       };
 
-      recorder.start(CHUNK_INTERVAL_MS);
-      mediaRecorderRef.current = recorder;
-      addLog("event", `🎤 마이크 스트리밍 시작 (${CHUNK_INTERVAL_MS}ms 청크)`);
+      // destination에 직접 연결하면 피드백 루프 발생 → mute gain 경유
+      const silentGain = audioContext.createGain();
+      silentGain.gain.value = 0;
+      source.connect(processor);
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
+
+      addLog("event", "🎤 마이크 스트리밍 시작 (PCM 16kHz, 16-bit, mono)");
     } catch (err) {
-      addLog("error", `마이크 접근 실패: ${err.message}`);
+      addLog("error", `마이크 접근 실패: ${err.message} — 브라우저 주소창의 🔒 아이콘에서 마이크 권한을 확인하세요`);
+      setWaveActive(false);
     }
   };
 
@@ -463,11 +518,51 @@ export default function CtiSimulator() {
             )}
 
             {inputMode === "mic" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0" }}>
-                <WaveBar active={waveActive && status === "calling"} />
-                <span style={{ fontSize: 12, color: "#64748b" }}>
-                  {status === "calling" ? "마이크 스트리밍 중..." : "대기중"}
-                </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0" }}>
+                {micDevices.length > 0 && (
+                  <select
+                    value={selectedMicId}
+                    onChange={(e) => setSelectedMicId(e.target.value)}
+                    disabled={status === "calling"}
+                    style={{
+                      background: "#1e293b", border: "1px solid #334155", borderRadius: 6,
+                      color: "#e2e8f0", padding: "6px 10px", fontSize: 12, fontFamily: "inherit",
+                      cursor: status === "calling" ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {micDevices.map((d) => (
+                      <option key={d.deviceId} value={d.deviceId}>
+                        {d.label || `마이크 ${d.deviceId.slice(0, 8)}`}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <WaveBar active={waveActive && status === "calling"} />
+                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                    {status === "calling" ? "마이크 스트리밍 중..." : "대기중"}
+                  </span>
+                </div>
+                {status === "calling" && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ flex: 1, height: 8, background: "#1e293b", borderRadius: 4, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", borderRadius: 4, transition: "width 0.1s ease",
+                        width: `${Math.min(audioLevel, 100)}%`,
+                        background: audioLevel < 2 ? "#ef4444" : audioLevel < 10 ? "#f59e0b" : "#22c55e",
+                      }} />
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, minWidth: 36,
+                      color: audioLevel < 2 ? "#ef4444" : audioLevel < 10 ? "#f59e0b" : "#22c55e",
+                    }}>
+                      {audioLevel}%
+                    </span>
+                    {audioLevel < 2 && (
+                      <span style={{ fontSize: 11, color: "#ef4444" }}>⚠ 무음</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -511,7 +606,7 @@ export default function CtiSimulator() {
               fontSize: 13, cursor: "pointer", fontWeight: 600, fontFamily: "inherit", transition: "all 0.2s",
             }}
           >
-            ⚡ 시뮬레이션 실행 (서버 없이 테스트)
+            ⚡ UI 더미 테스트 (서버 연결 없이 화면만 확인)
           </button>
 
           {/* 파이프라인 결과 */}
