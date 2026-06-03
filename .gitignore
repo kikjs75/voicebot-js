@@ -14,3 +14,12 @@ env/
 *-key.json
 *-credentials.json
 *serviceaccount*.json
+
+# 로그 파일
+*.log
+
+# Claude Code 설정
+.claude/
+
+# 로컬 작업 디렉토리
+shared/
