@@ -47,14 +47,15 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
 
         log.info("[CTI] 연결됨 sessionId={} callId={}", session.getId(), callId);
 
-        // callId를 클로저로 캡처 — afterConnectionClosed 이후 map에서 제거되어도 참조 유지
+        // history를 클로저로 직접 캡처 — afterConnectionClosed 이후 historyMap 정리와 무관하게 유지
         // publishOn(boundedElastic): LlmService.chat()이 block()을 사용하므로 NIO 스레드에서 실행 금지
+        List<LlmService.Message> capturedHistory = historyMap.get(session.getId());
         sttService.recognize(sink.asFlux(), callId)
                 .filter(SttService.SttResult::isFinal)
                 .timeout(Duration.ofSeconds(60))
                 .publishOn(Schedulers.boundedElastic())
                 .subscribe(
-                        result -> handleFinalStt(session, callId, result.text()),
+                        result -> handleFinalStt(session, callId, result.text(), capturedHistory),
                         error -> log.error("[CTI] STT 오류 callId={}", callId, error)
                 );
     }
@@ -108,24 +109,34 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
         if (sink != null) sink.tryEmitComplete();
     }
 
-    private void handleFinalStt(WebSocketSession session, String callId, String finalText) {
+    private void handleFinalStt(WebSocketSession session, String callId, String finalText, List<LlmService.Message> history) {
         log.info("[CTI] STT 최종 callId={} text=\"{}\"", callId, finalText);
 
         try {
             sendJson(session, Map.of("type", "STT_FINAL", "text", finalText));
 
-            List<LlmService.Message> history = historyMap.get(session.getId());
             if (history == null) return;
 
             history.add(new LlmService.Message("user", finalText));
 
             long llmStart = System.currentTimeMillis();
-            String llmResponse = llmService.chat(history, callId);
+            String llmRaw = llmService.chat(history, callId);
             log.info("[CTI-LLM-PERF] callId={} elapsed={}ms", callId, System.currentTimeMillis() - llmStart);
+
+            // Claude가 JSON {"intent":"...","response":"..."} 형식으로 응답
+            String intent = "기타";
+            String llmResponse = llmRaw;
+            try {
+                com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(llmRaw);
+                intent = node.path("intent").asText("기타");
+                llmResponse = node.path("response").asText(llmRaw);
+            } catch (Exception e) {
+                log.warn("[CTI] LLM 응답 JSON 파싱 실패 callId={} raw={}", callId, llmRaw);
+            }
 
             history.add(new LlmService.Message("assistant", llmResponse));
 
-            sendJson(session, Map.of("type", "LLM_RESULT", "response", llmResponse));
+            sendJson(session, Map.of("type", "LLM_RESULT", "intent", intent, "response", llmResponse));
 
             long ttsStart = System.currentTimeMillis();
             ttsService.synthesize(llmResponse, callId);
