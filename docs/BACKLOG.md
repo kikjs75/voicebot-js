@@ -14,25 +14,34 @@
 
 ### [검증] 직접 테스트 및 소스 분석
 
-- **상태**: 진행중
-- **목적**: Phase 5 E2E 완료 후 실제 동작을 직접 확인하고 코드 흐름을 이해한 뒤 개선 작업 진행
-- **방법**: docs/TESTING-GUIDE.md 순서대로 진행
-  - [ ] sim profile 테스트 (한국어 음성 생성 → 콜 요청 → 로그/DB/Redis 확인)
-  - [ ] real profile 테스트 (동일)
-  - [ ] 핵심 소스 파일 분석 (CallHandler → RtzrWebSocketSttService → ClaudeApiLlmService → GoogleCloudTtsService)
-  - [ ] 분석 중 발견된 개선점 BACKLOG에 추가
-- **완료 기준**: 분석 완료 후 LLM/TTS 응답시간 개선 작업 착수
+- **상태**: 완료 (2026-06-03)
+- **결과**: real-google profile 기준 Host OS 브라우저(localhost:5173)에서 마이크 → STT → LLM → TTS 파이프라인 E2E 동작 확인
+  - RTZR STT: PCM 16kHz 16-bit mono 정상 인식 확인
+  - Claude LLM: intent 분류 + 구어체 응답 생성 확인
+  - Google TTS: 텍스트 합성 호출 확인
+- **발견된 이슈**: 아래 항목으로 분리 등록
+
+---
+
+### [개선] TTS 음성 브라우저 재생
+
+- **상태**: 대기
+- **발견**: 2026-06-03 E2E 테스트
+- **현상**: TTS_TEXT 메시지로 텍스트만 화면에 표시됨. Google TTS가 합성한 오디오 바이트가 브라우저까지 전달되지 않아 실제 음성 재생 안 됨
+- **방법**:
+  - 백엔드: `handleFinalStt`에서 TTS 오디오 바이트를 WebSocket binary 메시지로 전송
+  - 프론트엔드: binary 메시지 수신 시 `AudioContext`로 디코딩 후 재생
+  - 또는 TTS_TEXT 수신 시 브라우저 Web Speech API(`SpeechSynthesis`)로 대체 재생 (간단한 방법)
 
 ---
 
 ### [개선] LLM 응답시간 단축
 
-- **상태**: 대기
+- **상태**: 부분완료 (시스템 프롬프트 추가됨, max_tokens 미조정)
 - **발견**: Phase 5 E2E 테스트 (docs/E2E-TEST-REAL.md)
 - **원인**: max_tokens 1024로 설정되어 있어 LLM이 긴 응답을 생성 → 4,849ms (목표 3,000ms)
 - **방법**:
   - `ClaudeApiLlmService.java` — `max_tokens` 축소 (1024 → 200~300)
-  - `ClaudeApiLlmService.java` — `system` 프롬프트 추가 ("2문장 이내로 간결하게 답하세요")
 
 ---
 
@@ -53,3 +62,24 @@
 - **발견**: Phase 5 E2E 테스트 (docs/E2E-TEST-REAL.md)
 - **원인**: LLM 4,849ms + TTS 3,226ms → 전체 8,532ms (목표 5,000ms)
 - **방법**: 위 두 항목(LLM/TTS 단축) 완료 시 달성 여부 재측정
+
+---
+
+### [개선] 콜센터 시나리오 시스템 프롬프트 커스터마이징
+
+- **상태**: 대기
+- **발견**: 2026-06-03 E2E 테스트
+- **현상**: 현재 시스템 프롬프트는 범용 콜센터 수준. 실제 업종(통신사, 쇼핑몰, 기술지원 등)에 맞는 시나리오 미반영
+- **방법**:
+  - `application-real-google.yml`에 `voicebot.llm.system-prompt` 설정값 추가
+  - `ClaudeApiLlmService`에서 외부화된 프롬프트 읽어 사용
+  - intent 분류 목록도 업종별로 조정
+
+---
+
+### [개선] Spring Boot 재시작 없이 .env 환경변수 로드
+
+- **상태**: 대기
+- **발견**: 2026-06-03 작업 중
+- **현상**: Spring Boot 재시작 시 `set -a && source .env && set +a` 수동 실행 필요. 터미널 세션이 바뀌면 환경변수 누락으로 기동 실패
+- **방법**: `.env` 파일을 Spring Boot `application.yml`의 `spring.config.import`로 직접 읽거나, 시작 스크립트(`start.sh`) 작성
