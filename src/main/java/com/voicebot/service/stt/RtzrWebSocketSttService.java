@@ -72,33 +72,51 @@ public class RtzrWebSocketSttService implements SttService {
 
             WebSocket ws = okHttpClient.newWebSocket(request, new WebSocketListener() {
                 @Override
+                public void onOpen(@NotNull WebSocket webSocket, @NotNull Response response) {
+                    log.info("[STT-RTZR] 연결됨 callId={} status={}", callId, response.code());
+                }
+
+                @Override
                 public void onMessage(@NotNull WebSocket webSocket, @NotNull String text) {
+                    log.info("[STT-RTZR] 메시지 수신 callId={} raw={}", callId, text);
                     try {
                         JsonNode node = objectMapper.readTree(text);
+                        if (node.has("error")) {
+                            log.error("[STT-RTZR] API 오류 callId={} error={}", callId, node.get("error").asText());
+                            emitter.error(new RuntimeException("RTZR error: " + node.get("error").asText()));
+                            return;
+                        }
                         boolean isFinal = node.path("final").asBoolean();
                         JsonNode alternatives = node.path("alternatives");
                         if (alternatives.isArray() && !alternatives.isEmpty()) {
                             String recognized = alternatives.get(0).path("text").asText();
-                            log.debug("[STT-RTZR] callId={} final={} text={}", callId, isFinal, recognized);
+                            log.info("[STT-RTZR] callId={} final={} text={}", callId, isFinal, recognized);
                             emitter.next(new SttResult(recognized, isFinal));
                             if (isFinal) {
                                 webSocket.close(1000, "done");
                             }
                         }
                     } catch (Exception e) {
-                        log.warn("[STT-RTZR] 응답 파싱 오류 callId={}", callId, e);
+                        log.warn("[STT-RTZR] 응답 파싱 오류 callId={} raw={}", callId, text, e);
                     }
                 }
 
                 @Override
+                public void onClosing(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
+                    log.info("[STT-RTZR] 연결 종료 중 callId={} code={} reason={}", callId, code, reason);
+                }
+
+                @Override
                 public void onClosed(@NotNull WebSocket webSocket, int code, @NotNull String reason) {
+                    log.info("[STT-RTZR] 연결 종료 callId={} code={} reason={}", callId, code, reason);
                     emitter.complete();
                 }
 
                 @Override
                 public void onFailure(@NotNull WebSocket webSocket, @NotNull Throwable t,
                                       @Nullable Response response) {
-                    log.error("[STT-RTZR] WebSocket 오류 callId={}", callId, t);
+                    log.error("[STT-RTZR] WebSocket 오류 callId={} response={}", callId,
+                            response != null ? response.code() + " " + response.message() : "null", t);
                     emitter.error(t);
                 }
             });
@@ -120,14 +138,15 @@ public class RtzrWebSocketSttService implements SttService {
     }
 
     private String buildWsUrl() {
-        return "wss://openapi.vito.ai/v1/transcribe:streaming" +
+        String url = "wss://openapi.vito.ai/v1/transcribe:streaming" +
                "?sample_rate=" + sampleRate +
                "&encoding=" + encoding +
-               "&domain=CALL" +
                "&use_itn=true" +
                "&use_disfluency_filter=true" +
                "&use_profanity_filter=false" +
                "&use_punctuation=false";
+        log.info("[STT-RTZR] URL={}", url);
+        return url;
     }
 
     private synchronized void refreshToken() {

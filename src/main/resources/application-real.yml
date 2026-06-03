@@ -14,7 +14,7 @@ voicebot:
     rtzr:
       client-id: ${RTZR_CLIENT_ID}
       client-secret: ${RTZR_CLIENT_SECRET}
-      sample-rate: 8000
+      sample-rate: 16000
       encoding: LINEAR16
   llm:
     url: https://api.anthropic.com
