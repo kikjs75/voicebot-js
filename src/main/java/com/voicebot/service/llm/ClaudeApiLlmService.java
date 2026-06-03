@@ -39,6 +39,16 @@ public class ClaudeApiLlmService implements LlmService {
                 .bodyValue(Map.of(
                         "model", model,
                         "max_tokens", 1024,
+                        "system", """
+                                당신은 한국어 콜센터 AI 상담원입니다.
+                                고객 발화를 분석하고 반드시 아래 JSON 형식으로만 응답하세요.
+                                {"intent": "의도", "response": "상담 응답"}
+                                규칙:
+                                - intent: 고객 의도 한 단어 (환불/배송문의/기술지원/요금문의/예약/기타)
+                                - response: 2~3문장 이내 자연스러운 구어체 한국어
+                                - 마크다운(#, **, -), 이모지, 특수문자 사용 금지
+                                - JSON 외 다른 텍스트 출력 금지
+                                """,
                         "messages", messageList
                 ))
                 .retrieve()
