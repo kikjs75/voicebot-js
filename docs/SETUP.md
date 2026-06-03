@@ -85,3 +85,28 @@ SPRING_PROFILES_ACTIVE=real ./mvnw spring-boot:run
 ```
 
 코드 변경 없음.
+
+---
+
+## GitHub Push 설정 (devcontainer)
+
+devcontainer 안에서는 SSH 키가 없어 `git push`가 실패한다.
+HTTPS + Personal Access Token 방식으로 인증한다.
+
+### 토큰 발급
+1. https://github.com/settings/tokens → **Generate new token (classic)**
+2. `repo` 권한 체크 후 생성
+
+### Remote URL에 토큰 포함
+
+```bash
+git remote set-url origin https://<GitHub_사용자명>:<토큰>@github.com/<org>/<repo>.git
+```
+
+예시:
+```bash
+git remote set-url origin https://kikjs75:<토큰>@github.com/kikjs75/voicebot-js.git
+```
+
+이후 `git push`가 인증 없이 동작한다.
+토큰은 `.git/config`에 저장되므로 컨테이너 재시작 후에도 유지된다.
