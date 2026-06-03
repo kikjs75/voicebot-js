@@ -14,6 +14,7 @@
     "LC_ALL": "ko_KR.UTF-8",
     "TZ": "Asia/Seoul"
   },
+  "forwardPorts": [8080, 5173],
   "postCreateCommand": "echo 'Dev container ready'",
   "postStartCommand": "sudo chmod 666 /var/run/docker.sock",
   "customizations": {

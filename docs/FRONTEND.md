@@ -80,6 +80,21 @@ nohup mvn spring-boot:run -Dspring-boot.run.profiles=sim > app.log 2>&1 & echo "
 
 ---
 
+## Host OS 접근 — devcontainer 포트 포워딩
+
+devcontainer 안에서 실행 중인 서비스를 Host OS 브라우저에서 접근하려면
+`.devcontainer/devcontainer.json`에 포트 포워딩 설정이 필요하다.
+
+```json
+"forwardPorts": [8080, 5173]
+```
+
+설정 후 **devcontainer 재시작** 필요. 재시작 후 Spring Boot와 Vite를 다시 기동해야 한다.
+
+재기동 절차 → @docs/TESTING-GUIDE.md (4. CTI WebSocket 수동 테스트 → devcontainer 재시작 후 서비스 재기동 절차)
+
+---
+
 ## .gitignore
 
 프로젝트 루트 `.gitignore` 에 아래 항목이 있는지 확인한다.

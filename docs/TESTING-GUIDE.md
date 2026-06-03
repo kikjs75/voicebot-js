@@ -212,7 +212,110 @@ docker exec voicebot-redis redis-cli DEL "call:session:TEST-001"
 
 ---
 
-## 4. 소스 분석 포인트
+## 4. CTI WebSocket 수동 테스트 (담당자)
+
+### 사전 조건 — devcontainer 포트 포워딩
+
+Host OS 브라우저에서 devcontainer 안 서비스에 접근하려면 포트 포워딩이 필요하다.
+`.devcontainer/devcontainer.json`에 아래 설정이 되어 있어야 한다.
+
+```json
+"forwardPorts": [8080, 5173]
+```
+
+설정 변경 후 devcontainer를 **재시작**해야 적용된다.
+
+---
+
+### devcontainer 재시작 후 서비스 재기동 절차
+
+devcontainer 재시작 시 Spring Boot와 Vite 개발 서버가 모두 종료되므로 다시 기동해야 한다.
+
+```bash
+# 1) vscode 계정으로 전환
+su - vscode
+cd /workspaces/voicebot-js
+
+# 2) Docker 컨테이너 상태 확인 (자동 재시작됨)
+docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# 3) Spring Boot 기동 (real-google profile)
+set -a && source .env && set +a
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real,real-google > app-real.log 2>&1 &
+echo "PID: $!"
+
+# 기동 확인
+until grep -q "Started VoicebotApplication" app-real.log; do sleep 2; done
+echo "Spring Boot 기동 완료"
+
+# 4) Vite 프론트엔드 기동
+cd frontend
+nohup npm run dev > /tmp/vite.log 2>&1 &
+until grep -q "Local:" /tmp/vite.log; do sleep 1; done
+echo "Vite 기동 완료 → http://localhost:5173"
+```
+
+---
+
+### 테스트 절차
+
+**1. Host OS 브라우저에서 `http://localhost:5173` 접속**
+
+**2. 우측 상단 WS 상태 확인**
+- 🟢 `WS 연결됨` → 정상 진행
+- 🔴 `WS 미연결` → Spring Boot 기동 여부 확인 (`lsof -ti:8080`)
+
+**3. 통화 정보 입력 후 `📞 전화 걸기`**
+- 발신번호 / 수신번호 입력 (기본값 사용 가능)
+- 브라우저 마이크 권한 요청 팝업 → **허용**
+- 상태: `대기중` → `통화중` 변경 확인
+
+**4. 마이크에 대고 한국어로 말하기**
+```
+예시 발화:
+  "안녕하세요, 요금 문의드리려고요"
+  "인터넷이 연결이 안 돼요"
+  "해지 신청하고 싶어요"
+```
+
+**5. 우측 실시간 로그 패널에서 파이프라인 결과 확인**
+
+| 아이콘 | 항목 | 확인 내용 |
+|---|---|---|
+| 🎤 STT | 음성 인식 결과 | 발화 내용이 정확히 텍스트로 변환됐는지 |
+| 🧠 LLM | Claude 응답 | 의도에 맞는 응답이 생성됐는지 |
+| 🔊 TTS | 음성 출력 텍스트 | TTS로 변환될 텍스트 내용 |
+
+**6. `📵 끊기` 버튼으로 통화 종료**
+
+---
+
+### 서버 없이 UI만 확인 (선택)
+
+전화 걸기 후 `⚡ 시뮬레이션 실행` 버튼 클릭 →
+서버 연결 없이 가상 파이프라인 동작 확인 (STT/LLM/TTS 고정값으로 표시)
+
+---
+
+### 테스트 중 로그 모니터링
+
+```bash
+# Spring Boot CTI 파이프라인 로그
+tail -f /workspaces/voicebot-js/app-real.log | grep -E "\[CTI\]|\[CTI-LLM\]|\[CTI-TTS\]|ERROR"
+```
+
+예시 출력:
+```
+[CTI] 연결됨 sessionId=... callId=CTI-XXXXXXXX
+[CTI] 이벤트 수신 type=CTI_EVENT callId=CTI-XXXXXXXX
+[CTI] STT 최종 callId=CTI-XXXXXXXX text="안녕하세요 요금 문의드리려고요"
+[CTI-LLM-PERF] callId=CTI-XXXXXXXX elapsed=3241ms
+[CTI-TTS-PERF] callId=CTI-XXXXXXXX elapsed=891ms
+```
+
+---
+
+## 5. 소스 분석 포인트
 
 ### 핵심 파일 읽는 순서
 
