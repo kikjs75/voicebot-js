@@ -140,6 +140,60 @@ record SttResult(String text, boolean isFinal) {}
 
 ---
 
+---
+
+### Phase 6 — CTI WebSocket 구현
+
+> 목표: 기존 HTTP 방식을 유지하면서 실시간 음성 스트리밍을 위한 WebSocket 엔드포인트(`/ws/cti`) 추가.
+> 기존 소스 수정 없이 파일 2개(WebSocketConfig, CtiWebSocketHandler) + 프론트엔드(frontend/) 추가.
+
+**구현 의도**
+
+현재 `/call/incoming`은 오디오 파일을 HTTP body에 담아 일괄 전송하는 방식이다.
+실제 CTI 환경에서는 전화 통화 중 음성이 실시간으로 스트리밍되므로,
+WebSocket으로 음성 청크를 250ms 간격으로 수신하면서 STT → LLM → TTS 파이프라인을 처리해야 한다.
+`reference/voicebot-demo/`의 데모 소스(`CtiSimulator.jsx`, `CtiPipeline_Spring.java`)가 이 구조의 원형이다.
+
+**구현 범위**
+
+| 파일 | 작업 |
+|---|---|
+| `pom.xml` | `spring-boot-starter-websocket` 의존성 추가 |
+| `config/WebSocketConfig.java` | 신규: `/ws/cti` 핸들러 등록 |
+| `call/CtiWebSocketHandler.java` | 신규: WebSocket 오케스트레이터 (Sinks 브리지) |
+| `frontend/` | 신규: Vite React 프로젝트 + CtiSimulator.jsx |
+
+**구현 단계**
+
+1. `pom.xml` 의존성 추가
+2. `WebSocketConfig.java` 작성
+3. `CtiWebSocketHandler.java` 작성 (Sinks.Many 브리지)
+4. `frontend/` Vite 프로젝트 생성 + CtiSimulator.jsx 연결
+
+**테스트 단계**
+
+| 단계 | Profile | 방법 | 담당 |
+|---|---|---|---|
+| E2E 자체 테스트 - sim | sim | WebSocket 연결 → 음성 청크 전송 → STT_FINAL/LLM_RESULT/TTS_TEXT 수신 확인 | Claude |
+| E2E 자체 테스트 - real | real-google | 동일 테스트를 실제 외부 API(RTZR/Claude/Google TTS)로 실행 | Claude |
+| 담당자 수동 테스트 | real-google | 마이크 입력 → 실시간 STT/LLM/TTS 결과 확인 | 담당자 직접 |
+
+**완료 기준**
+
+- [ ] `/ws/cti` WebSocket 연결 수립
+- [ ] 음성 청크 수신 → STT → LLM → TTS 파이프라인 동작
+- [ ] 브라우저에서 STT_FINAL / LLM_RESULT / TTS_TEXT 수신 확인
+- [ ] 기존 `/call/incoming` HTTP 방식 정상 동작 유지
+
+**진행 중 특이사항**
+
+1. **callId=null 버그** — STT 콜백이 비동기 실행될 때 `afterConnectionClosed`가 먼저 `callIdMap`을 정리해 null이 되는 문제. subscribe 클로저에서 callId를 직접 캡처하는 방식으로 해결.
+2. **Reactor NIO 스레드 block() 오류** — STT 콜백이 `reactor-http-nio` 스레드에서 실행되는데, `SimulatorLlmService.chat()`이 내부적으로 `.block()`을 호출해 오류 발생. `.publishOn(Schedulers.boundedElastic())`으로 블로킹 허용 스레드로 전환하여 해결.
+3. **application.yml DB/Redis localhost 잘못된 기본값** — `application.yml`의 `localhost` 설정이 devcontainer 환경에서 dead code였음. `${DB_HOST:mariadb}`, `${REDIS_HOST:redis}`로 수정해 모든 profile이 올바른 Docker 호스트명을 사용하도록 통일.
+4. **real-google E2E 테스트 음성 파일** — real RTZR STT는 실제 음성 데이터 필요. `/tmp/korean-test.pcm` (WAV 헤더 포함, 약 4.4초 한국어 음성)을 사용. WAV 헤더 44바이트를 제외한 raw PCM을 4096바이트 청크로 스트리밍.
+
+---
+
 ## 진행 현황
 
 | Phase | 상태 |
@@ -149,3 +203,4 @@ record SttResult(String text, boolean isFinal) {}
 | Phase 3 — E2E 동작 확인 (sim) | ✅ 완료 |
 | Phase 4 — real profile 구현 | ✅ 완료 |
 | Phase 5 — E2E 동작 확인 (real) | ✅ 완료 |
+| Phase 6 — CTI WebSocket 구현 | ✅ E2E 자체 테스트 sim/real 완료 (담당자 수동 테스트 대기) |

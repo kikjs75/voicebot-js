@@ -6,6 +6,9 @@ target/
 *.iml
 .DS_Store
 
+frontend/node_modules/
+frontend/dist/
+
 # GCP 서비스 계정 키 — 절대 커밋 금지
 env/
 *-key.json

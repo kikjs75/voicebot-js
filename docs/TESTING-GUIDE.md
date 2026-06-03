@@ -6,6 +6,14 @@
 
 ## 1. 환경 시작
 
+### vscode 계정 전환
+- vscode 계정 전환해야지 파일 소유권 오염, Git 작업 오염 안 된다.
+- 그러나 apt-get 같은 시스템 명령만 sudo 붙여서 실행.
+
+```bash
+su - vscode
+```
+
 ### sim profile (시뮬레이터 — API 키 불필요)
 
 ```bash
@@ -62,7 +70,7 @@ sim/real 모두 동일한 방법으로 테스트 음성을 생성한다.
 
 ```bash
 # python3-cryptography 설치 (최초 1회)
-apt-get install -y python3-cryptography
+sudo apt-get install -y python3-cryptography
 
 # Google TTS로 한국어 음성 생성 (8kHz LINEAR16 PCM)
 set -a && source .env && set +a
@@ -144,17 +152,17 @@ curl -X POST http://localhost:8080/call/incoming \
 # 첫 번째 발화
 curl -X POST http://localhost:8080/call/incoming \
   -H "Content-Type: application/octet-stream" \
-  -H "X-Call-Id: SESSION-TEST-001" \
+  -H "X-Call-Id: TEST-SIM-001" \
   --data-binary @/tmp/korean-test.pcm -o /dev/null -s -w "%{http_code}\n"
 
 # 두 번째 발화 (같은 callId — 이전 대화 이력 포함)
 curl -X POST http://localhost:8080/call/incoming \
   -H "Content-Type: application/octet-stream" \
-  -H "X-Call-Id: SESSION-TEST-001" \
+  -H "X-Call-Id: TEST-SIM-001" \
   --data-binary @/tmp/korean-test.pcm -o /dev/null -s -w "%{http_code}\n"
 
 # Redis에서 대화 이력 확인
-docker exec voicebot-redis redis-cli GET "call:session:SESSION-TEST-001"
+docker exec voicebot-redis redis-cli GET "call:session:TEST-SIM-001"
 ```
 
 ---

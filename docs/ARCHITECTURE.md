@@ -29,7 +29,16 @@
 └────────────────────────────────────────────────┘
 ```
 
+## 엔드포인트
+
+| 방식 | 엔드포인트 | 구현 위치 |
+|---|---|---|
+| HTTP POST | `/call/incoming` | `CallController` → `CallHandler` |
+| WebSocket | `/ws/cti` | `WebSocketConfig` → `CtiWebSocketHandler` |
+
 ## 콜 처리 흐름
+
+### HTTP (기존)
 
 ```
 전화 수신
@@ -51,6 +60,23 @@ CallHandler.process()
   │
   └─ 4. 오디오 응답 전송 + CallRecord 저장
 ```
+
+### WebSocket (신규 — /ws/cti)
+
+```
+브라우저 (CtiSimulator.jsx)
+  │
+  ├─ CTI_EVENT(CALL_START) JSON 전송
+  │
+  ├─ 음성 청크 binary 전송 (250ms 간격)
+  │       └─ Sinks.Many<byte[]> 브리지
+  │               └─ SttService.recognize(flux, callId)
+  │                       └─ STT_FINAL → LlmService → TtsService
+  │
+  └─ 결과 수신 (STT_FINAL / LLM_RESULT / TTS_TEXT JSON)
+```
+
+상세 설계 → @docs/CTI-WEBSOCKET.md
 
 ## Profile 구조
 

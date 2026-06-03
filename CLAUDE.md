@@ -174,3 +174,5 @@ SPRING_PROFILES_ACTIVE=real ./mvnw spring-boot:run
 @docs/SIMULATOR.md
 @docs/SETUP.md
 @docs/dev-environment.md
+@docs/CTI-WEBSOCKET.md
+@docs/FRONTEND.md
