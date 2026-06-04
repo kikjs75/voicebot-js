@@ -7,7 +7,8 @@
     "--network=voicebot-net"
   ],
   "mounts": [
-    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
   ],
   "remoteEnv": {
     "LANG": "ko_KR.UTF-8",

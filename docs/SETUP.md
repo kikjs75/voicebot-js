@@ -174,7 +174,7 @@ SSH 키는 `~/.ssh/`에 저장되는데, 컨테이너가 재생성되면 사라�
 
 ```json
 "mounts": [
-  "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,readonly"
+  "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
 ]
 ```
 
