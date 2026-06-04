@@ -182,6 +182,23 @@ SSH 키는 `~/.ssh/`에 저장되는데, 컨테이너가 재생성되면 사라�
 
 ---
 
+## MCP 연결과 GitHub 인증
+
+MCP(Claude Code 등)에서 GitHub에 접근할 때는 **HTTPS + 토큰만 가능**하다.
+SSH 키는 사용할 수 없다.
+
+이유는 두 방식이 동작하는 계층이 다르기 때문이다.
+
+```
+git push/pull    →  git 전송 프로토콜  →  SSH 또는 HTTPS+토큰 둘 다 가능
+MCP / GitHub API →  HTTP 웹 요청       →  토큰만 가능
+```
+
+SSH 키는 전용 터널을 여는 열쇠라 git 전송에서만 쓸 수 있고,
+MCP나 GitHub API는 웹 요청 방식이라 토큰(PAT)이 유일한 인증 수단이다.
+
+---
+
 ## 커밋 메시지 규칙 (Conventional Commits)
 
 이 프로젝트는 커밋 메시지에 **Conventional Commits** 규칙을 사용한다.
