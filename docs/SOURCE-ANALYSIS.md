@@ -411,8 +411,38 @@ handleTextMessage(session, message) { ... }
 **STT 서비스는 Flux 방식이다**
 
 ```java
-// SttService 인터페이스 — Flux<byte[]>를 받도록 설계
+// SttService — 인터페이스 (약속)
 Flux<SttResult> recognize(Flux<byte[]> audioStream, String callId);
+// "Flux<byte[]> 받아서 Flux<SttResult> 돌려줄게" 라는 계약
+
+// RtzrWebSocketSttService — 실제 구현체
+// recognize() 내부에서 audioStream을 구독
+audioStream.subscribe(
+    chunk -> ws.send(ByteString.of(chunk)),  // 청크 올 때마다 RTZR로 전송
+    error -> { ws.close(...); },             // 오류 시
+    () -> { ws.send("EOS"); }               // 완료 시 EOS 전송
+);
+```
+
+`recognize(sink.asFlux())`를 호출하는 순간 `RtzrWebSocketSttService`가 RTZR WebSocket을 열고
+`audioStream`을 구독한다. 이후 Sink에 청크가 들어올 때마다 자동으로 받아서 RTZR로 보낸다.
+
+```
+CtiWebSocketHandler                RtzrWebSocketSttService
+        │                                    │
+        │  sttService.recognize(             │
+        │      sink.asFlux(), callId) ──────→│ audioStream.subscribe(
+        │                                    │     chunk -> ws.send(chunk)
+        │                                    │ )  ← RTZR 연결 열림
+        │
+        │  sink.tryEmitNext(chunk1) ─────────┼──→ ws.send(chunk1) → RTZR
+        │  sink.tryEmitNext(chunk2) ─────────┼──→ ws.send(chunk2) → RTZR
+        │  sink.tryEmitNext(chunk3) ─────────┼──→ ws.send(chunk3) → RTZR
+        │                                    │
+        │                          RTZR → onMessage(final=true)
+        │                                    │  emitter.next(SttResult)
+        │ ←─────────────────────────────────│
+        │  handleFinalStt() 호출             │
 ```
 
 RTZR STT는 음성이 시간순으로 계속 흘러들어오는 구조라 Flux가 자연스럽다.
