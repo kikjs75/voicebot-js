@@ -159,6 +159,9 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
     }
 
     private void startNextSttSession(WebSocketSession session, String callId, List<LlmService.Message> history) {
+        Sinks.Many<byte[]> oldSink = sinkMap.get(session.getId());
+        if (oldSink != null) oldSink.tryEmitComplete();
+
         Sinks.Many<byte[]> newSink = Sinks.many().unicast().onBackpressureBuffer();
         sinkMap.put(session.getId(), newSink);
         sttService.recognize(newSink.asFlux(), callId)
