@@ -231,10 +231,44 @@ std::map<std::string, std::vector<Message>> historyMap;
 
 ### RTZR 토큰 관리 — C++ 구현
 
-Java `RtzrWebSocketSttService.refreshToken()`과 동일한 로직.
+Java `RtzrWebSocketSttService.refreshToken()`과 동일한 로직. Java의 스레드 안전 처리도 C++ 방식으로 동일하게 구현한다.
+
+| Java | C++ 대응 |
+|---|---|
+| `synchronized` | `std::mutex` + `std::lock_guard` |
+| `AtomicReference<String>` | `std::string` + `std::mutex` |
+| `@Scheduled` | `std::thread` + `sleep_for` 루프 |
 
 ```cpp
-// libcurl로 POST https://openapi.vito.ai/v1/authenticate 호출
-// 응답에서 access_token, expire_at 저장
-// 5분마다 만료 10분 이내면 갱신 (별도 스레드 또는 타이머)
+class RtzrTokenManager {
+private:
+    std::string accessToken;      // AtomicReference<String> 대응
+    long expireAt = 0;
+    std::mutex tokenMutex;        // synchronized 대응
+
+    void refreshToken() {
+        std::lock_guard<std::mutex> lock(tokenMutex);
+        // libcurl로 POST https://openapi.vito.ai/v1/authenticate 호출
+        // 응답에서 access_token, expire_at 갱신
+    }
+
+public:
+    std::string getAccessToken() {
+        std::lock_guard<std::mutex> lock(tokenMutex);  // 읽기도 보호
+        return accessToken;
+    }
+
+    // @Scheduled 대응 — 별도 스레드에서 5분마다 실행
+    void startScheduler() {
+        std::thread([this]() {
+            while (true) {
+                std::this_thread::sleep_for(std::chrono::minutes(5));
+                long now = std::time(nullptr);
+                if (expireAt - now < 600) {  // 10분 이내면 갱신
+                    refreshToken();
+                }
+            }
+        }).detach();
+    }
+};
 ```
