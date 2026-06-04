@@ -536,7 +536,92 @@ Map map = objectMapper.readValue(json, Map.class);
 
 ---
 
-## 5. 설정 파일 구조
+## 5. TTS — GoogleCloudTtsService
+
+Google Cloud TTS API를 호출하는 구현체.
+
+### @PostConstruct — 서비스 계정 키 로드
+
+```java
+credentials = GoogleCredentials
+    .fromStream(new FileInputStream(credentialsPath))  // JSON 키 파일 읽기
+    .createScoped(SCOPE);  // 사용할 권한 범위 지정
+```
+
+RTZR처럼 직접 HTTP 인증 요청을 하는 게 아니라 Google 공식 라이브러리(`google-auth-library`)가 토큰 발급/갱신을 대신 처리한다.
+
+### synthesize() — TTS 호출
+
+**1. 토큰 발급**
+
+```java
+String token = getAccessToken();  // credentials.refreshIfExpired() → 토큰 반환
+```
+
+**2. Google TTS API 요청**
+
+Google TTS API가 요구하는 JSON 형식:
+```json
+{
+  "input":       {"text": "안녕하세요"},
+  "voice":       {"languageCode": "ko-KR", "name": "ko-KR-Neural2-A"},
+  "audioConfig": {"audioEncoding": "LINEAR16", "sampleRateHertz": 8000}
+}
+```
+
+`Map.of`로 이 구조를 만든다. Map 안에 Map을 넣어 중첩 JSON 구조를 표현한다:
+
+```java
+Map.of(
+    "input",       Map.of("text", text),
+    "voice",       Map.of("languageCode", languageCode, "name", voiceName),
+    "audioConfig", Map.of("audioEncoding", audioEncoding, "sampleRateHertz", sampleRateHertz)
+)
+```
+
+`WebClient`가 `Map` → JSON 문자열로 자동 직렬화(Jackson 라이브러리)해서 HTTP Body에 담아 전송한다.
+
+**3. 오디오 추출**
+
+```java
+String audioContent = (String) response.get("audioContent");
+return Base64.getDecoder().decode(audioContent);
+```
+
+Google TTS 응답:
+```json
+{"audioContent": "UklGRiQAAABXQVZFZm10IBAA..."}
+```
+
+`audioContent`는 Base64 인코딩된 오디오 바이트다. `Base64.getDecoder().decode()`로 실제 바이트로 변환한다.
+
+### 토큰 관리 — RTZR STT와 비교
+
+```java
+// 5분마다 주기적 갱신
+@Scheduled(fixedRate = 300_000)
+public void scheduleTokenRefresh() {
+    credentials.refreshIfExpired();  // 만료됐으면 자동 갱신
+}
+
+// 호출 시마다 스레드 안전 처리
+private synchronized String getAccessToken() {
+    credentials.refreshIfExpired();
+    return credentials.getAccessToken().getTokenValue();
+}
+```
+
+| | RTZR STT | Google TTS |
+|---|---|---|
+| `synchronized` | ✅ | ✅ |
+| `@Scheduled` | ✅ 5분마다 | ✅ 5분마다 |
+| 갱신 방식 | 직접 HTTP POST | `refreshIfExpired()` (라이브러리 위임) |
+
+`refreshIfExpired()`가 내부적으로 만료 여부를 판단해서 필요할 때만 토큰을 갱신한다. 5분마다 `@Scheduled`로 미리 갱신해두면 `synthesize()` 호출 시 토큰 갱신 지연을 방지할 수 있다.
+
+---
+
+## 6. 설정 파일 구조
 
 ```
 src/main/resources/
