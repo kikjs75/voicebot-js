@@ -78,7 +78,7 @@ sim/real 모두 동일한 방법으로 테스트 음성을 생성한다.
 # python3-cryptography 설치 (최초 1회)
 sudo apt-get install -y python3-cryptography
 
-# Google TTS로 한국어 음성 생성 (8kHz LINEAR16 PCM)
+# Google TTS로 한국어 음성 생성 (16kHz LINEAR16 PCM)
 set -a && source .env && set +a
 python3 << 'EOF'
 import urllib.request, urllib.parse, json, base64, os, time
@@ -112,7 +112,7 @@ with urllib.request.urlopen(urllib.request.Request('https://oauth2.googleapis.co
 body = json.dumps({
     'input': {'text': '안녕하세요. 무엇을 도와드릴까요?'},
     'voice': {'languageCode': 'ko-KR', 'name': 'ko-KR-Neural2-A'},
-    'audioConfig': {'audioEncoding': 'LINEAR16', 'sampleRateHertz': 8000}
+    'audioConfig': {'audioEncoding': 'LINEAR16', 'sampleRateHertz': 16000}
 }).encode()
 req = urllib.request.Request(
     'https://texttospeech.googleapis.com/v1/text:synthesize', data=body,
@@ -245,9 +245,9 @@ cd /workspaces/voicebot-js
 # 2) Docker 컨테이너 상태 확인 (자동 재시작됨)
 docker ps --format "table {{.Names}}\t{{.Status}}"
 
-# 3) Spring Boot 기동 (real-google profile)
+# 3) Spring Boot 기동 (real profile)
 set -a && source .env && set +a
-nohup mvn spring-boot:run -Dspring-boot.run.profiles=real,real-google > app-real.log 2>&1 &
+nohup env SPRING_PROFILES_ACTIVE=real mvn spring-boot:run > app-real.log 2>&1 &
 echo "PID: $!"
 
 # 기동 확인
@@ -298,7 +298,7 @@ echo "Vite 기동 완료 → http://localhost:5173"
 
 ### 서버 없이 UI만 확인 (선택)
 
-전화 걸기 후 `⚡ 시뮬레이션 실행` 버튼 클릭 →
+전화 걸기 후 `⚡ UI 더미 테스트` 버튼 클릭 →
 서버 연결 없이 가상 파이프라인 동작 확인 (STT/LLM/TTS 고정값으로 표시)
 
 ---
@@ -367,7 +367,7 @@ recognize(audioStream, callId)
   │
   ├─ WebSocket 연결
   │    Authorization: Bearer {token}
-  │    wss://openapi.vito.ai/v1/transcribe:streaming?sample_rate=8000&...
+  │    wss://openapi.vito.ai/v1/transcribe:streaming?sample_rate=16000&...
   │
   ├─ audioStream 구독 → binary frame 전송
   │
@@ -390,7 +390,55 @@ application-real.yml     ← real profile (RTZR + Claude + Google TTS)
 
 ---
 
-## 5. 자주 확인하는 것
+## 6. logback으로 로그 파일 자동 저장
+
+현재는 `nohup ... > app-real.log` 처럼 셸 리다이렉트로 로그를 남기고 있다.
+**logback 설정**을 추가하면 Spring Boot가 자동으로 파일에 로그를 남기므로 리다이렉트 없이 `mvn spring-boot:run`만 실행해도 된다.
+
+### 설정 방법
+
+`src/main/resources/logback-spring.xml` 파일을 생성한다:
+
+```xml
+<configuration>
+  <!-- 콘솔 출력 -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- 파일 출력 (날짜별 롤링) -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>app.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <fileNamePattern>app.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <maxHistory>7</maxHistory> <!-- 7일치만 보관 -->
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE" />
+    <appender-ref ref="FILE" />
+  </root>
+</configuration>
+```
+
+설정 후에는 리다이렉트 없이 실행해도 `app.log`에 자동으로 기록된다:
+
+```bash
+SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
+# → app.log 에 자동 저장
+```
+
+> **현재 미적용** — 당장 필요한 경우 위 파일을 추가하면 된다. 적용 시 `.gitignore`에 `app.*.log` 패턴 추가 필요.
+
+---
+
+## 7. 자주 확인하는 것
 
 ### RTZR 토큰 상태
 
@@ -425,7 +473,7 @@ curl -X POST http://llm-simulator:8082/chat \
 
 ---
 
-## 6. 다음 개선 예정 항목
+## 8. 다음 개선 예정 항목
 
 | 항목 | 현재 | 목표 | 방법 |
 |---|---|---|---|
