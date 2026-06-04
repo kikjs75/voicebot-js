@@ -90,11 +90,18 @@ echo "재시작 완료"
 
 ### Vite 프론트엔드 기동 (CTI WebSocket 테스트 시)
 
-Spring Boot가 실행 중인 상태에서 **별도 터미널**로 실행한다.
+Spring Boot가 실행 중인 상태에서 실행한다.
 
 ```bash
+# 포그라운드 (별도 터미널)
 cd /workspaces/voicebot-js/frontend
 npm run dev
+
+# 백그라운드
+cd /workspaces/voicebot-js/frontend
+nohup npm run dev > /tmp/vite.log 2>&1 &
+until grep -q "Local:" /tmp/vite.log; do sleep 1; done
+echo "Vite 기동 완료 → http://localhost:5173"
 ```
 
 브라우저: `http://localhost:5173`
