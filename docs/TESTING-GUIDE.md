@@ -374,72 +374,9 @@ tail -f /workspaces/voicebot-js/app-real.log | grep -E "\[CTI\]|\[CTI-LLM\]|\[CT
 
 ---
 
-## 5. 소스 분석 포인트
+## 5. 소스 분석
 
-### 핵심 파일 읽는 순서
-
-```
-1. src/main/java/com/voicebot/call/CallController.java   ← HTTP 진입점
-2. src/main/java/com/voicebot/call/CallHandler.java      ← 파이프라인 오케스트레이션
-3. src/main/java/com/voicebot/call/CallSession.java      ← 세션 모델
-4. src/main/java/com/voicebot/service/stt/SttService.java          ← STT 인터페이스
-5. src/main/java/com/voicebot/service/stt/RtzrWebSocketSttService.java  ← STT 구현
-6. src/main/java/com/voicebot/service/llm/ClaudeApiLlmService.java       ← LLM 구현
-7. src/main/java/com/voicebot/service/tts/GoogleCloudTtsService.java     ← TTS 구현
-```
-
-### CallHandler — 파이프라인 흐름
-
-```
-process(audioData, callId)
-  │
-  ├─ 1. sttService.recognize(Flux.just(audioData), callId)
-  │       .filter(isFinal)            ← final:true 만 통과
-  │       .timeout(30초)              ← 무음/무응답 타임아웃
-  │       .onErrorReturn("")          ← 타임아웃 시 빈 문자열
-  │
-  ├─ 2. (빈 결과면) → "죄송합니다, 다시 말씀해 주세요" TTS 즉시 반환
-  │
-  ├─ 3. Redis에서 세션 로드 (또는 신규 생성)
-  │
-  ├─ 4. llmService.chat(messages, callId)    ← 대화 이력 포함 LLM 호출
-  │
-  ├─ 5. Redis에 세션 저장 (TTL 1시간)
-  │
-  ├─ 6. ttsService.synthesize(llmResponse, callId)
-  │
-  └─ 7. CallRecord DB 저장 + byte[] 반환
-```
-
-### RtzrWebSocketSttService — WebSocket 흐름
-
-```
-recognize(audioStream, callId)
-  │
-  ├─ Flux.create() — OkHttp WebSocket 콜백 → Reactor 브릿지
-  │
-  ├─ WebSocket 연결
-  │    Authorization: Bearer {token}
-  │    wss://openapi.vito.ai/v1/transcribe:streaming?sample_rate=16000&...
-  │
-  ├─ audioStream 구독 → binary frame 전송
-  │
-  ├─ 오디오 스트림 완료 → "EOS" 전송
-  │
-  ├─ onMessage: JSON 파싱 → SttResult(text, isFinal) emit
-  │    final=false → 중간 결과
-  │    final=true  → 확정 결과 → WebSocket close
-  │
-  └─ onClosed → Flux complete
-```
-
-### 설정 파일 구조
-
-```
-application.yml          ← 공통 설정 (DB, Redis, 로그레벨)
-application-sim.yml      ← sim profile (DB/Redis/STT/LLM/TTS → 시뮬레이터)
-application-real.yml     ← real profile (RTZR + Claude + Google TTS)
-```
+→ **[SOURCE-ANALYSIS.md](SOURCE-ANALYSIS.md)** 참조
 
 ---
 
