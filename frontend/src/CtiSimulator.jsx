@@ -130,10 +130,13 @@ export default function CtiSimulator() {
   const [micDevices, setMicDevices] = useState([]);
   const [selectedMicId, setSelectedMicId] = useState("");
 
+  const [botState, setBotState] = useState("ready"); // "ready" | "thinking"
+
   const wsRef = useRef(null);
   const audioContextRef = useRef(null);
   const audioFileRef = useRef(null);
   const logEndRef = useRef(null);
+  const botReadyRef = useRef(true); // onaudioprocess에서 참조 (state는 클로저 문제로 사용 불가)
 
   const addLog = useCallback((type, text) => {
     const now = new Date();
@@ -188,6 +191,12 @@ export default function CtiSimulator() {
           } else if (data.type === "TTS_TEXT") {
             setTtsText(data.text);
             addLog("tts", data.text);
+          } else if (data.type === "BOT_THINKING") {
+            setBotState("thinking");
+            botReadyRef.current = false;
+          } else if (data.type === "BOT_READY") {
+            setBotState("ready");
+            botReadyRef.current = true;
           }
         } catch {
           addLog("event", `서버 메시지: ${e.data}`);
@@ -246,6 +255,8 @@ export default function CtiSimulator() {
   const handleEndCall = () => {
     setStatus("ended");
     setWaveActive(false);
+    setBotState("ready");
+    botReadyRef.current = true;
     addLog("event", "📵 통화 종료");
 
     audioContextRef.current?.close();
@@ -300,7 +311,7 @@ export default function CtiSimulator() {
           if (Math.abs(float32[i]) > maxVal) maxVal = Math.abs(float32[i]);
         }
         setAudioLevel(Math.round(maxVal * 100));
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
+        if (wsRef.current?.readyState === WebSocket.OPEN && botReadyRef.current) {
           wsRef.current.send(int16.buffer);
         }
       };
@@ -538,9 +549,9 @@ export default function CtiSimulator() {
                   </select>
                 )}
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <WaveBar active={waveActive && status === "calling"} />
-                  <span style={{ fontSize: 12, color: "#64748b" }}>
-                    {status === "calling" ? "마이크 스트리밍 중..." : "대기중"}
+                  <WaveBar active={waveActive && status === "calling" && botState === "ready"} />
+                  <span style={{ fontSize: 12, color: botState === "thinking" ? "#f59e0b" : "#64748b" }}>
+                    {status !== "calling" ? "대기중" : botState === "thinking" ? "봇 응답 중... (잠시 기다려주세요)" : "말씀하세요"}
                   </span>
                 </div>
                 {status === "calling" && (

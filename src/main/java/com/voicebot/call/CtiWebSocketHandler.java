@@ -114,6 +114,7 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
 
         try {
             sendJson(session, Map.of("type", "STT_FINAL", "text", finalText));
+            sendJson(session, Map.of("type", "BOT_THINKING"));
 
             if (history == null) return;
 
@@ -144,12 +145,30 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
 
             sendJson(session, Map.of("type", "TTS_TEXT", "text", llmResponse));
 
+            // TTS 완료 후 다음 발화를 위해 새 Sink 생성 + STT 재구독
+            startNextSttSession(session, callId, history);
+            sendJson(session, Map.of("type", "BOT_READY"));
+            log.info("[CTI] 다음 발화 대기 callId={}", callId);
+
         } catch (Exception e) {
             log.error("[CTI] 파이프라인 오류 callId={}", callId, e);
             try {
                 sendJson(session, Map.of("type", "ERROR", "message", e.getMessage()));
             } catch (Exception ignored) {}
         }
+    }
+
+    private void startNextSttSession(WebSocketSession session, String callId, List<LlmService.Message> history) {
+        Sinks.Many<byte[]> newSink = Sinks.many().unicast().onBackpressureBuffer();
+        sinkMap.put(session.getId(), newSink);
+        sttService.recognize(newSink.asFlux(), callId)
+                .filter(SttService.SttResult::isFinal)
+                .timeout(Duration.ofSeconds(60))
+                .publishOn(Schedulers.boundedElastic())
+                .subscribe(
+                        result -> handleFinalStt(session, callId, result.text(), history),
+                        error -> log.error("[CTI] STT 오류 callId={}", callId, error)
+                );
     }
 
     private void sendJson(WebSocketSession session, Object data) throws Exception {
