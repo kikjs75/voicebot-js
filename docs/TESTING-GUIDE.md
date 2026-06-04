@@ -410,9 +410,9 @@ application-real.yml     ← real profile (RTZR + Claude + Google TTS)
 
   <!-- 파일 출력 (날짜별 롤링) -->
   <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>app.log</file>
+    <file>logs/app.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <fileNamePattern>app.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <fileNamePattern>logs/app.%d{yyyy-MM-dd}.log</fileNamePattern>
       <maxHistory>7</maxHistory> <!-- 7일치만 보관 -->
     </rollingPolicy>
     <encoder>
@@ -427,14 +427,61 @@ application-real.yml     ← real profile (RTZR + Claude + Google TTS)
 </configuration>
 ```
 
-설정 후에는 리다이렉트 없이 실행해도 `app.log`에 자동으로 기록된다:
+### 각 항목 설명
+
+**CONSOLE / FILE — appender**
+
+로그를 어디에 출력할지 정의하는 단위다. CONSOLE은 터미널, FILE은 파일에 출력한다.
+두 appender를 `<root>`에 모두 등록하면 동시에 출력된다.
+
+**`<encoder>`**
+
+logback은 로그를 내부적으로 객체로 들고 있다. `<encoder>`는 그 객체를 실제 텍스트로 변환하는 방법을 정의한다. `<pattern>`은 변환 형식이고, `<encoder>`는 그것을 담는 그릇이다.
+
+**`<pattern>` 주요 항목**
+
+| 패턴 | 출력 예시 | 설명 |
+|---|---|---|
+| `%d{HH:mm:ss.SSS}` | `14:23:01.123` | 시각 |
+| `[%thread]` | `[main]` | 스레드명 |
+| `%-5level` | `INFO ` | 레벨을 5자리로 왼쪽 정렬 (짧으면 공백 채움) |
+| `%logger{36}` | `c.v.s.stt.RtzrWebSocket` | 클래스명을 36자 이내로 축약 |
+| `%msg%n` | `[STT-RTZR] 연결됨` + 줄바꿈 | 실제 메시지 |
+
+**파일 경로**
+
+경로를 `logs/app.log`로 지정하면 `mvn spring-boot:run`을 실행한 디렉토리(프로젝트 루트) 기준으로 `logs/` 디렉토리가 생성된다. 디렉토리가 없어도 logback이 자동 생성한다.
+
+```
+/workspaces/voicebot-js/
+└── logs/
+    ├── app.log              ← 오늘 로그 (현재 기록 중)
+    └── app.2026-06-03.log   ← 자정에 롤링된 이전 날 로그
+```
+
+**`<root level="INFO">`**
+
+INFO 이상(INFO/WARN/ERROR)만 기록하고 DEBUG는 무시한다.
+단, `application.yml`의 `logging.level` 설정이 우선하므로:
+
+```yaml
+logging:
+  level:
+    com.voicebot: DEBUG   # ← 이 패키지는 logback root 설정을 덮어씀
+```
+
+**소스 변경 필요 여부**
+
+없다. `src/main/resources/logback-spring.xml` 파일만 추가하면 Spring Boot가 자동 감지한다. `pom.xml` 의존성 추가도 불필요하다 (Spring Boot Starter에 logback 내장).
+
+설정 후에는 리다이렉트 없이 실행해도 `logs/app.log`에 자동으로 기록된다:
 
 ```bash
 SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
-# → app.log 에 자동 저장
+# → logs/app.log 에 자동 저장
 ```
 
-> **현재 미적용** — 당장 필요한 경우 위 파일을 추가하면 된다. 적용 시 `.gitignore`에 `app.*.log` 패턴 추가 필요.
+> **현재 미적용** — 당장 필요한 경우 위 파일을 추가하면 된다. 적용 시 `.gitignore`에 `logs/` 추가 필요.
 
 ---
 
