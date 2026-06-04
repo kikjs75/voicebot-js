@@ -119,7 +119,7 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
             if (history == null) return;
 
             history.add(new LlmService.Message("user", finalText));
-            log.info("[CTI-HISTORY] callId={} size={} latest=user:\"{}\"", callId, history.size(), finalText);
+            log.info("[CTI-HISTORY] callId={} size={} history={}", callId, history.size(), history);
 
             long llmStart = System.currentTimeMillis();
             String llmRaw = llmService.chat(history, callId);
@@ -137,7 +137,7 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
             }
 
             history.add(new LlmService.Message("assistant", llmResponse));
-            log.info("[CTI-HISTORY] callId={} size={} latest=assistant:\"{}\"", callId, history.size(), llmResponse);
+            log.info("[CTI-HISTORY] callId={} size={} history={}", callId, history.size(), history);
 
             sendJson(session, Map.of("type", "LLM_RESULT", "intent", intent, "response", llmResponse));
 
