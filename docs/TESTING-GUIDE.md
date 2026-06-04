@@ -47,9 +47,11 @@ set -a && source .env && set +a
 # 포그라운드 (로그 터미널에 직접 출력)
 SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
 
-# 백그라운드 (로그 파일에 저장)
-nohup env SPRING_PROFILES_ACTIVE=real mvn spring-boot:run > app-real.log 2>&1 &
+# 백그라운드 (logback이 logs/app.log 에 자동 저장)
+nohup env SPRING_PROFILES_ACTIVE=real mvn spring-boot:run > /dev/null 2>&1 &
 echo "PID: $!"
+until grep -q "Started VoicebotApplication" logs/app.log; do sleep 2; done
+echo "Spring Boot 기동 완료"
 ```
 
 기동 확인 로그 (real profile):
@@ -91,8 +93,8 @@ SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
 
 ```bash
 kill $(lsof -ti:8080)
-nohup env SPRING_PROFILES_ACTIVE=real mvn spring-boot:run > app-real.log 2>&1 &
-until grep -q "Started VoicebotApplication" app-real.log; do sleep 2; done
+nohup env SPRING_PROFILES_ACTIVE=real mvn spring-boot:run > /dev/null 2>&1 &
+until grep -q "Started VoicebotApplication" logs/app.log; do sleep 2; done
 echo "재시작 완료"
 ```
 
@@ -471,7 +473,7 @@ SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
 # → logs/app.log 에 자동 저장
 ```
 
-> **현재 미적용** — 당장 필요한 경우 위 파일을 추가하면 된다. 적용 시 `.gitignore`에 `logs/` 추가 필요.
+> **적용 완료** — `src/main/resources/logback-spring.xml` 파일이 존재하며 현재 활성화되어 있다. `.gitignore`에 `logs/` 추가 필요.
 
 ---
 

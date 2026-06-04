@@ -3,6 +3,8 @@
 현재 Java Spring의 WebSocket 수신 부분을 C++로 대체하는 신규 프로젝트 계획.
 기존 Spring Boot 프로젝트는 변경 없이 유지하고 C++ 버전을 병행 운영한다.
 
+빌드 및 실행 방법 → @docs/CPP-WS-TESTING-GUIDE.md
+
 ---
 
 ## 목적
@@ -397,3 +399,81 @@ public:
     }
 };
 ```
+
+---
+
+## 코드 리뷰 및 수정 이력 (2026-06-04)
+
+### 검토 결과 요약
+
+초기 구현 완료 후 3가지 항목을 점검했다.
+
+| # | 항목 | 결과 |
+|---|---|---|
+| 1 | nlohmann/json CMake 연동 | ✅ 문제 없음 |
+| 2 | RTZR 샘플레이트 불일치 | ⚠️ 버그 발견 → 수정 완료 |
+| 3 | LLM/TTS 스레드 관리 | ⚠️ 설계 약점 → 수정 완료 |
+
+---
+
+### 수정 1 — RTZR 샘플레이트 기본값 오류
+
+**파일:** `cpp-ws-server/src/service/RtzrWebSocketSttService.cpp`
+
+**문제**
+프론트엔드(`CtiSimulator.jsx`)는 `AudioContext({ sampleRate: 16000 })`으로 16000Hz 오디오를 전송한다.
+Java 서버도 `application-real.yml`에서 `sample-rate: 16000`으로 설정되어 있다.
+그러나 C++ 서버의 환경변수 기본값이 8000Hz로 되어 있어, RTZR에 잘못된 샘플레이트를 전달했다.
+
+```cpp
+// before
+const std::string sampleRate = getEnvOr("RTZR_SAMPLE_RATE", "8000");
+
+// after
+const std::string sampleRate = getEnvOr("RTZR_SAMPLE_RATE", "16000");
+```
+
+---
+
+### 수정 2 — LLM/TTS 스레드 취소 플래그 추가
+
+**파일:** `cpp-ws-server/src/WsServer.cpp`
+
+**문제**
+전화가 끊겨도 LLM/TTS를 처리하는 `detach()` 스레드가 계속 실행됐다.
+세션 종료 시점을 스레드가 알 수 없어 불필요한 외부 API 호출이 발생했다.
+
+**수정 내용**
+`WsSession`에 `std::atomic<bool> cancelled_{false}` 플래그를 추가했다.
+
+- 연결 종료 시: `cancelled_ = true`
+- LLM 호출 전 / LLM 완료 후 / TTS 완료 후 / strand 콜백 진입 시: 플래그 확인 후 중단
+
+LLM/TTS 호출 자체를 중간에 끊을 수는 없으나(libcurl 한계), 각 단계 완료 직후 다음 작업을 건너뛰어 불필요한 처리를 최소화한다.
+
+---
+
+### 수정 3 — STT 서비스 객체 재사용
+
+**파일:** `cpp-ws-server/src/WsServer.cpp`
+
+**문제**
+Java 버전은 `SttService` 빈을 세션 전체에서 재사용하고 발화마다 `Sinks.Many`(경량 버퍼)만 새로 만든다.
+C++ 버전은 발화마다 `RtzrWebSocketSttService` 객체(내부 스레드 + ioc 포함)를 새로 생성하고 있었다.
+Java 설계 원칙과 어긋나고 불필요한 스레드 생성/소멸 오버헤드가 있었다.
+
+```cpp
+// before — 발화마다 새 객체 생성
+void startStt() {
+    stt_ = std::make_shared<RtzrWebSocketSttService>(tokenMgr_);
+    stt_->recognize(...);
+}
+
+// after — 최초 1회만 생성, 이후 recognize() 재호출
+void startStt() {
+    if (!stt_) stt_ = std::make_shared<RtzrWebSocketSttService>(tokenMgr_);
+    stt_->recognize(...);
+}
+```
+
+`RtzrWebSocketSttService::recognize()`는 재호출 시 이전 연결을 정리하고 재연결하는 로직을 이미 내장하고 있다.

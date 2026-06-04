@@ -1,10 +1,12 @@
 FROM mcr.microsoft.com/devcontainers/java:21-bookworm
 
-# 한국어 로케일
-RUN apt-get update && apt-get install -y locales \
+# 한국어 로케일 + 타임존
+RUN apt-get update && apt-get install -y locales tzdata \
     && sed -i 's/# ko_KR.UTF-8 UTF-8/ko_KR.UTF-8 UTF-8/' /etc/locale.gen \
     && locale-gen \
     && update-locale LANG=ko_KR.UTF-8 LC_ALL=ko_KR.UTF-8 \
+    && ln -sf /usr/share/zoneinfo/Asia/Seoul /etc/localtime \
+    && echo "Asia/Seoul" > /etc/timezone \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV LANG=ko_KR.UTF-8
@@ -40,6 +42,7 @@ RUN apt-get update && apt-get install -y \
     libboost-system-dev \
     libssl-dev \
     libcurl4-openssl-dev \
+    nlohmann-json3-dev \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Claude Code (root로 전역 설치)

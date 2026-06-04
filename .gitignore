@@ -9,6 +9,9 @@ target/
 frontend/node_modules/
 frontend/dist/
 
+# C++ 빌드 결과물
+cpp-ws-server/build/
+
 # GCP 서비스 계정 키 — 절대 커밋 금지
 env/
 *-key.json
