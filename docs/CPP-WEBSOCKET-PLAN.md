@@ -1,0 +1,204 @@
+# C++ WebSocket 서버 구현 계획
+
+현재 Java Spring의 WebSocket 수신 부분을 C++로 대체하는 신규 프로젝트 계획.
+기존 Spring Boot 프로젝트는 변경 없이 유지하고 C++ 버전을 병행 운영한다.
+
+---
+
+## 목적
+
+- Java Spring WebSocket과 C++ WebSocket을 동시에 운영
+- 브라우저에서 WebSocket URL(포트)만 바꿔 두 버전을 전환
+- 실시간 STT 스트리밍 유지
+- 성능 비교 및 C++ 구현 검토
+
+---
+
+## 전체 구조 비교
+
+### 현재 (Java Spring 버전 — :8080)
+
+```
+브라우저 → WebSocket(:8080/ws/cti) → CtiWebSocketHandler.java
+                                            ├─ RTZR WebSocket (STT 실시간)
+                                            ├─ ClaudeApiLlmService (LLM)
+                                            └─ GoogleCloudTtsService (TTS)
+```
+
+### 신규 (C++ 버전 — :9090)
+
+```
+브라우저 → WebSocket(:9090/ws/cti) → C++ WebSocket 서버
+                                            ├─ RTZR WebSocket (STT 실시간, C++ 직접 연결)
+                                            ├─ POST /api/cti/llm/chat    → Spring :8080
+                                            └─ POST /api/cti/tts/synthesize → Spring :8080
+```
+
+---
+
+## 브라우저 전환 방법
+
+코드 변경 없이 환경변수만 바꿔 전환한다.
+
+```javascript
+// frontend/src/CtiSimulator.jsx
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080/ws/cti";
+```
+
+```bash
+# Java 버전 실행
+VITE_WS_URL=ws://localhost:8080/ws/cti npm run dev
+
+# C++ 버전 실행
+VITE_WS_URL=ws://localhost:9090/ws/cti npm run dev
+```
+
+---
+
+## 변경 범위
+
+### Spring Boot — 최소 변경
+
+기존 코드는 전혀 건드리지 않는다. REST 컨트롤러 1개만 추가한다.
+
+```java
+// 신규: src/main/java/com/voicebot/call/CtiRestController.java
+@RestController
+@RequestMapping("/api/cti")
+@RequiredArgsConstructor
+public class CtiRestController {
+
+    private final LlmService llmService;
+    private final TtsService ttsService;
+
+    @PostMapping("/llm/chat")
+    public String chat(@RequestBody List<LlmService.Message> messages) {
+        return llmService.chat(messages, "CPP");
+    }
+
+    @PostMapping("/tts/synthesize")
+    public byte[] synthesize(@RequestBody String text) {
+        return ttsService.synthesize(text, "CPP");
+    }
+}
+```
+
+STT는 C++이 RTZR에 직접 연결하므로 Spring에 추가 없음.
+
+| 파일 | 변경 여부 |
+|---|---|
+| CtiWebSocketHandler.java | 변경 없음 (Java 버전 그대로 유지) |
+| LlmService / ClaudeApiLlmService | 변경 없음 (재사용) |
+| TtsService / GoogleCloudTtsService | 변경 없음 (재사용) |
+| CtiRestController.java | **신규 추가** |
+
+---
+
+### C++ 서버 — 신규 프로젝트
+
+`CtiWebSocketHandler.java`와 동일한 로직을 C++로 구현한다.
+
+**역할**
+
+```
+1. WebSocket 서버 열기 (:9090/ws/cti)
+2. 브라우저에서 PCM 청크 수신 (binary)
+3. RTZR WebSocket에 실시간 전달 (STT)
+4. RTZR final 결과 수신
+5. Spring POST /api/cti/llm/chat 호출 (LLM)
+6. Spring POST /api/cti/tts/synthesize 호출 (TTS)
+7. 결과를 브라우저로 WebSocket JSON 전송
+8. BOT_THINKING / BOT_READY 상태 메시지 전송
+9. 연속 발화 지원 (발화마다 RTZR 재연결)
+```
+
+**처리 흐름**
+
+```
+브라우저: binary(PCM 청크) 전송
+    ↓
+C++ 서버: 청크 수신 → RTZR WebSocket으로 실시간 전달
+    ↓
+RTZR: final=true 결과 반환
+    ↓
+C++ 서버: STT_FINAL → 브라우저 전송
+          BOT_THINKING → 브라우저 전송
+          POST /api/cti/llm/chat → Spring
+    ↓
+Spring LLM: Claude API 호출 → JSON 응답 반환
+    ↓
+C++ 서버: LLM_RESULT → 브라우저 전송
+          POST /api/cti/tts/synthesize → Spring
+    ↓
+Spring TTS: Google TTS 호출 → 오디오 반환
+    ↓
+C++ 서버: TTS_TEXT → 브라우저 전송
+          BOT_READY → 브라우저 전송
+          RTZR 재연결 (다음 발화 대기)
+```
+
+**사용 라이브러리**
+
+| 역할 | 라이브러리 |
+|---|---|
+| WebSocket 서버 (브라우저 연결) | Boost.Beast 또는 libwebsockets |
+| WebSocket 클라이언트 (RTZR 연결) | Boost.Beast 또는 libwebsockets |
+| HTTP 클라이언트 (Spring 호출) | libcurl 또는 cpp-httplib |
+| JSON 파싱/생성 | nlohmann/json |
+| 빌드 시스템 | CMake |
+
+---
+
+## 프로젝트 디렉토리 구조 (안)
+
+```
+voicebot-js/
+├── src/                          ← 기존 Spring Boot (변경 없음)
+├── frontend/                     ← 기존 React (환경변수만 추가)
+└── cpp-ws-server/                ← 신규 C++ 프로젝트
+    ├── CMakeLists.txt
+    ├── main.cpp
+    └── src/
+        ├── WsServer.cpp          ← WebSocket 서버 (브라우저 연결)
+        ├── RtzrSttClient.cpp     ← RTZR WebSocket 클라이언트
+        ├── SpringApiClient.cpp   ← Spring REST 호출 (LLM/TTS)
+        └── CallSession.cpp       ← 세션/이력 관리
+```
+
+---
+
+## 브라우저 ↔ C++ 메시지 프로토콜
+
+Java 버전과 **완전히 동일**하다. 브라우저 코드 변경 없음.
+
+**브라우저 → C++ 서버**
+
+| 형식 | 내용 |
+|---|---|
+| binary | PCM 16kHz 16-bit mono 청크 |
+| text JSON | `{"type":"CTI_EVENT","event":"CALL_START",...}` |
+| text JSON | `{"type":"CTI_EVENT","event":"CALL_END"}` |
+
+**C++ 서버 → 브라우저**
+
+| type | 시점 |
+|---|---|
+| `STT_FINAL` | RTZR 최종 인식 결과 |
+| `BOT_THINKING` | LLM 처리 시작 |
+| `LLM_RESULT` | LLM 응답 완료 (intent + response) |
+| `TTS_TEXT` | TTS 처리 완료 |
+| `BOT_READY` | 다음 발화 대기 |
+| `ERROR` | 파이프라인 오류 |
+
+---
+
+## 검토 항목
+
+구현 전 확인이 필요한 사항:
+
+- [ ] C++ 프로젝트 위치 — 현재 저장소 안 (`cpp-ws-server/`) vs 별도 저장소
+- [ ] RTZR 토큰 관리 — C++에서 독립적으로 발급/갱신
+- [ ] 대화 이력 관리 — C++에서 세션별 history 유지 방법
+- [ ] 빌드 환경 — devcontainer에 C++ 빌드 도구 추가 필요 (cmake, g++, 라이브러리)
+- [ ] Spring REST 인증 — C++ → Spring 호출 시 인증 필요 여부
+- [ ] 포트 충돌 — devcontainer `forwardPorts`에 9090 추가 필요
