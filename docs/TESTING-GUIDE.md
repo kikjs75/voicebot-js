@@ -65,6 +65,29 @@ tail -f logs/app.log | grep -E "Started|RTZR.*토큰|TTS-GOOGLE|ERROR"
 Started VoicebotApplication in 2.x seconds
 ```
 
+### Spring Boot 재시작 (코드 변경 후)
+
+```bash
+# 실행 중인 프로세스 종료
+kill $(lsof -ti:8080)
+
+# 재시작
+cd /workspaces/voicebot-js
+set -a && source .env && set +a
+SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
+```
+
+백그라운드로 실행 중이었다면:
+
+```bash
+kill $(lsof -ti:8080)
+nohup env SPRING_PROFILES_ACTIVE=real mvn spring-boot:run > app-real.log 2>&1 &
+until grep -q "Started VoicebotApplication" app-real.log; do sleep 2; done
+echo "재시작 완료"
+```
+
+---
+
 ### Vite 프론트엔드 기동 (CTI WebSocket 테스트 시)
 
 Spring Boot가 실행 중인 상태에서 **별도 터미널**로 실행한다.
