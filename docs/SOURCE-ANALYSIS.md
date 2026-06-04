@@ -204,6 +204,96 @@ recognize(audioStream: Flux<byte[]>, callId)
 - `@Scheduled(fixedRate=300_000)` — 5분마다 만료 확인, 10분 이내면 갱신
 - 만료 시각: Unix timestamp (`expire_at`)
 
+### refreshToken() — 토큰 발급
+
+RTZR 서버에 아이디/비번을 보내서 토큰을 받아오는 함수.
+
+```java
+// 1. 요청 본문 만들기
+String body = "client_id=" + URLEncoder.encode(clientId, ...) +
+              "&client_secret=" + URLEncoder.encode(clientSecret, ...);
+// URLEncoder.encode: 특수문자를 URL 안전 형태로 변환 ("안녕!" → "안녕%21")
+
+// 2. RTZR 인증 서버에 POST 요청
+Map response = webClient.post()
+    .uri("https://openapi.vito.ai/v1/authenticate")
+    .contentType(MediaType.APPLICATION_FORM_URLENCODED)  // 폼 형식
+    .bodyValue(body)
+    .retrieve()
+    .bodyToMono(Map.class)  // JSON 응답 → Map으로 변환
+    .block();               // 결과 나올 때까지 대기 (동기)
+
+// 3. 토큰 저장
+// 응답: {"access_token": "eyJhbGci...", "expire_at": 1780421420}
+accessToken.set((String) response.get("access_token"));
+expireAt = ((Number) response.get("expire_at")).longValue();
+```
+
+**JSON → Map으로 받는 이유**
+
+JSON 구조와 Map 구조가 동일하기 때문이다.
+
+```
+JSON: {"access_token": "eyJ...", "expire_at": 1780421420}
+Map:   key="access_token" → value="eyJ..."
+       key="expire_at"    → value=1780421420
+```
+
+전용 클래스(`TokenResponse`)를 만들지 않아도 `response.get("key")`로 꺼낼 수 있어 간편하다.
+
+**synchronized**
+
+```java
+private synchronized void refreshToken() {
+```
+
+여러 스레드가 동시에 호출해도 한 번에 하나만 실행되도록 잠근다. 동시에 두 번 토큰을 발급받는 낭비를 막는다.
+
+**AtomicReference\<String\>**
+
+```java
+private final AtomicReference<String> accessToken = new AtomicReference<>("");
+```
+
+토큰은 여러 스레드에서 동시에 읽힌다. 일반 `String`으로 선언하면 읽는 중에 다른 스레드가 덮어쓸 수 있다.
+
+```
+일반 String:      읽는 중... (다른 스레드가 끼어들어 변경) → 잘못된 값
+AtomicReference:  읽기 완전히 완료 후 다음 스레드 진행   → 항상 올바른 값
+```
+
+`synchronized`는 메서드 전체를 잠그는 무거운 방법, `AtomicReference`는 변수 하나만 안전하게 보호하는 가벼운 방법이다.
+
+### scheduleTokenRefresh() — 주기적 토큰 갱신
+
+```java
+@Scheduled(fixedRate = 300_000)  // 5분(300,000ms)마다 자동 실행
+public void scheduleTokenRefresh() {
+    long now = System.currentTimeMillis() / 1000;  // 현재 시각 (ms → 초)
+    if (expireAt - now < 600) {                    // 만료까지 10분(600초) 이내면
+        refreshToken();                             // 갱신
+    }
+}
+```
+
+`300_000`의 `_`는 Java 7부터 지원하는 숫자 구분자다. 의미 없이 읽기 편하게 끊어줄 뿐이다.
+
+```java
+300_000 == 300000  // 완전히 동일 (쉼표 대신 _ 사용)
+```
+
+타임라인:
+
+```
+토큰 발급 (만료 = 지금 + 6시간)
+    ↓
+5분마다 체크
+    만료까지 10분 초과 → 갱신 안 함
+    만료까지 10분 이내 → refreshToken() 호출 → 갱신
+```
+
+만료 직전에 미리 갱신해서 토큰이 끊기는 일을 방지한다.
+
 ### recognize() 내부 상세
 
 크게 4개 덩어리로 구성된다.
