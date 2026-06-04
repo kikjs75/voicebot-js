@@ -872,3 +872,132 @@ WebSocket     → Spring WebSocket (서블릿 기반)
 | `[CTI-TTS-PERF]` | CtiWebSocketHandler | WebSocket TTS 처리시간 |
 | `[STT-RTZR]` | RtzrWebSocketSttService | RTZR 연결/메시지/오류 |
 | `[CTI]` | CtiWebSocketHandler | WebSocket 세션 이벤트 |
+
+---
+
+## 11. 프론트엔드 — CtiSimulator.jsx
+
+`frontend/src/CtiSimulator.jsx` — CTI WebSocket 테스트 UI.
+
+### useCallback
+
+```javascript
+const connectWs = useCallback(() => {
+    ...
+}, [addLog]);
+```
+
+React에서 함수를 메모이제이션(기억)하는 훅이다. 컴포넌트가 리렌더링될 때마다 함수가 새로 만들어지는 것을 막는다.
+
+```
+useCallback 없이: 렌더링마다 connectWs 새로 생성
+useCallback 사용: addLog가 바뀔 때만 connectWs 새로 생성, 나머지는 재사용
+```
+
+`[addLog]`는 의존성 배열이다. `connectWs` 안에서 `addLog`를 사용하므로 `addLog`가 바뀌면 최신 `addLog`를 참조하는 새 함수로 교체된다.
+
+### ws vs wsRef — 왜 다르게 쓰나
+
+```javascript
+// connectWs 안에서
+const ws = new WebSocket(WS_URL);  // 지역 변수 (함수 안에서만 존재)
+wsRef.current = ws;                // Ref에 저장 (컴포넌트 전체에서 접근 가능)
+```
+
+`ws`는 `connectWs` 함수 안에서만 사는 지역 변수다. 함수가 끝나면 사라진다.
+`wsRef`는 컴포넌트 전체에서 접근할 수 있는 전역 보관함이다.
+
+```
+connectWs() 실행:
+  ws = new WebSocket(...)  ← 연결 생성
+  wsRef.current = ws       ← 보관함에 저장
+
+handleStartCall()에서:
+  wsRef.current.send(...)  ← 보관함에서 꺼내서 사용
+  (ws는 이미 사라졌으니 직접 접근 불가)
+```
+
+`useState`로 저장하면 값이 바뀔 때마다 리렌더링이 발생한다. WebSocket 객체는 화면에 표시할 필요가 없으니 리렌더링 없이 값만 저장하는 `useRef`가 적합하다.
+
+### startMicStream — 마이크 스트리밍
+
+**1단계: 마이크 권한 요청**
+
+```javascript
+const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+        channelCount: 1,          // mono (스테레오 불필요)
+        echoCancellation: false,  // 에코 제거 끔 (RTZR이 직접 처리)
+        noiseSuppression: false,  // 노이즈 제거 끔
+        autoGainControl: false,   // 자동 볼륨 조절 끔
+        deviceId: selectedMicId   // 선택한 마이크 장치
+    }
+});
+```
+
+**2단계: AudioContext 생성 (16kHz 고정)**
+
+```javascript
+const audioContext = new AudioContext({ sampleRate: 16000 });
+```
+
+`sampleRate: 16000`으로 고정하면 브라우저가 마이크 입력을 자동으로 16kHz로 변환한다. RTZR이 16kHz(LINEAR16)를 요구하기 때문이다.
+
+**3단계: 오디오 파이프라인 구성**
+
+```javascript
+const source    = audioContext.createMediaStreamSource(stream);
+const processor = audioContext.createScriptProcessor(4096, 1, 1);
+//                                                    ↑     ↑  ↑
+//                                               버퍼크기 입력 출력(채널수)
+```
+
+4096 샘플 ÷ 16000 샘플/초 = 약 250ms. 250ms마다 `onaudioprocess` 콜백이 호출된다.
+
+**4단계: float32 → int16 변환 후 전송**
+
+```javascript
+processor.onaudioprocess = (e) => {
+    const float32 = e.inputBuffer.getChannelData(0);
+    // 브라우저 내부: float32 (-1.0 ~ 1.0)
+
+    const int16 = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+        int16[i] = Math.max(-32768, Math.min(32767, float32[i] * 32768));
+        // RTZR 요구: int16 (-32768 ~ 32767)
+        // Math.max/min으로 범위 초과 방지
+    }
+
+    if (wsRef.current?.readyState === WebSocket.OPEN && botReadyRef.current) {
+        wsRef.current.send(int16.buffer);  // WebSocket으로 전송
+        // botReadyRef.current = false이면 전송 안 함 (BOT_THINKING 중 차단)
+    }
+};
+```
+
+int16은 16비트 정수다. 2^16 = 65536개 → -32768 ~ 32767 범위.
+RTZR이 `LINEAR16` 포맷을 요구하는데 이것이 16비트 정수 PCM이다.
+
+**5단계: silentGain — 피드백 루프 방지**
+
+```javascript
+const silentGain = audioContext.createGain();
+silentGain.gain.value = 0;           // 볼륨 0 (무음)
+source.connect(processor);
+processor.connect(silentGain);
+silentGain.connect(audioContext.destination);
+```
+
+Web Audio API 규칙: 노드가 `destination`(스피커)에 연결되지 않으면 오디오 처리 자체가 동작하지 않는다. 그러나 마이크를 바로 스피커에 연결하면 피드백 루프(하울링)가 발생한다.
+
+```
+마이크 → 스피커 → 마이크 → 스피커 → ... (무한 반복 = 하울링)
+```
+
+`gain=0` 노드를 경유하면:
+```
+destination 연결 → onaudioprocess 정상 동작  ✅  (규칙 충족)
+gain = 0        → 스피커로 소리 안 나옴      ✅  (피드백 루프 차단)
+```
+
+`createGain()`은 "소리는 흘러가지만 볼륨을 0으로 만드는 파이프"다. 연결은 유지하면서 소리만 없애는 용도다.
