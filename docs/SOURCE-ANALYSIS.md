@@ -323,7 +323,73 @@ RTZR    → Spring: 인식 결과 JSON (text)
 
 ---
 
-## 7. 주요 로그 태그
+## 7. Sinks — 음성 청크 브리지
+
+WebSocket 콜백(비동기)과 Reactor 스트림을 연결하는 다리.
+밀어넣는 쪽(Producer)과 꺼내는 쪽(Consumer)을 분리해준다.
+
+### 생성
+
+```java
+Sinks.Many<byte[]> sink = Sinks.many().unicast().onBackpressureBuffer();
+//                                     ↑          ↑
+//                               구독자 1개만     소비 느리면 버퍼에 쌓음
+```
+
+생성 직후에는 빈 파이프다. 데이터도 없고 구독자도 없다.
+
+### Sink와 Flux의 관계
+
+```
+Sink       = 파이프 전체 (입구 + 출구)
+asFlux()   = 파이프의 출구만 Flux로 변환
+tryEmitNext() = 파이프 입구로 데이터 밀어넣기
+
+[입구 → → → → → 출구]
+  ↑                ↑
+tryEmitNext()    asFlux()
+```
+
+### 음성 청크 흐름
+
+```java
+// 1. BinaryMessage → byte[] 변환 → Sink 입구로 밀어넣기
+byte[] chunk = message.getPayload().array();
+sink.tryEmitNext(chunk);
+
+// 2. Sink 출구(asFlux())를 STT에 넘김
+sttService.recognize(sink.asFlux(), callId)
+// → Sink에 chunk가 들어올 때마다 Flux가 자동으로 RTZR로 흘려보냄
+```
+
+```
+BinaryMessage (WebSocket 프레임)
+    ↓ .getPayload().array()
+byte[] chunk
+    ↓ sink.tryEmitNext(chunk)
+Sink 내부 버퍼 [chunk1, chunk2, chunk3 ...]
+    ↓ sink.asFlux()
+Flux<byte[]>  ← STT 서비스가 구독해서 RTZR로 전송
+```
+
+`Flux<byte[]>`는 새로운 형식이 아니라 **byte[]가 시간순으로 흘러나오는 스트림**이다.
+Sink에 넣는 것도 `byte[]`, Flux로 나오는 것도 `byte[]` 그대로다.
+
+### 종료
+
+```java
+sink.tryEmitComplete();   // 정상 종료 → 구독자 onComplete 수신
+sink.tryEmitError(e);     // 오류 종료 → 구독자 onError 수신
+```
+
+현재 코드에서 `tryEmitComplete()` 호출 시점:
+- `handleCallEnd()` — 사용자가 전화 끊을 때
+- `startNextSttSession()` — 다음 발화 준비 시 기존 Sink 닫을 때
+- `afterConnectionClosed()` — WebSocket 연결 종료 시
+
+---
+
+## 8. 주요 로그 태그
 
 | 태그 | 위치 | 의미 |
 |---|---|---|
