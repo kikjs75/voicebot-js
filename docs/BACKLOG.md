@@ -77,6 +77,18 @@
 
 ---
 
+### [개선] 연속 발화 지원
+
+- **상태**: 완료 (2026-06-04)
+- **발견**: 2026-06-04 테스트 중
+- **현상**: 첫 발화 후 RTZR WebSocket이 닫히면서 STT Flux가 완료되어 이후 발화 처리 불가
+- **방법**:
+  - `handleFinalStt` 완료 후 `startNextSttSession`으로 새 Sink 생성 + STT 재구독
+  - `BOT_THINKING` / `BOT_READY` 메시지로 프론트엔드 마이크 전송 제어
+- **결과**: 3회 이상 연속 발화 정상 동작 확인 (shared/0604_02.jpg)
+
+---
+
 ### [개선] Spring Boot 재시작 없이 .env 환경변수 로드
 
 - **상태**: 대기
