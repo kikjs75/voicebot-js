@@ -294,6 +294,24 @@ public void scheduleTokenRefresh() {
 
 만료 직전에 미리 갱신해서 토큰이 끊기는 일을 방지한다.
 
+### WebClient vs OkHttpClient
+
+이 클래스에서 HTTP 클라이언트가 두 종류 사용된다.
+
+| | WebClient | OkHttpClient |
+|---|---|---|
+| 용도 | HTTP 요청 전용 (REST API) | HTTP + WebSocket 둘 다 |
+| 출처 | Spring WebFlux 공식 | Square 오픈소스 |
+| 방식 | Reactor 기반 (Mono/Flux) | 콜백 기반 |
+| 사용 위치 | 토큰 발급 (`refreshToken`) | RTZR WebSocket 연결 |
+
+```
+토큰 발급  → HTTP POST 한 번  → WebClient   (간단, Spring 공식)
+RTZR 연결 → WebSocket 지속   → OkHttpClient (WebSocket 안정적 지원)
+```
+
+Spring WebFlux의 WebClient도 WebSocket을 지원하지만, OkHttp가 WebSocket 콜백 처리가 더 직관적이어서 RTZR 연결에 채택했다.
+
 ### recognize() 내부 상세
 
 크게 4개 덩어리로 구성된다.
