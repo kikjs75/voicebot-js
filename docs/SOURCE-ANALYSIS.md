@@ -103,6 +103,58 @@ handleFinalStt()
   └─ sendJson: BOT_READY              ← 프론트엔드 마이크 재개
 ```
 
+### 연속 발화 전체 흐름
+
+```
+청크 도착 → sink.tryEmitNext()
+청크 도착 → sink.tryEmitNext()   ← 계속 RTZR로 전송
+청크 도착 → sink.tryEmitNext()
+        ↓
+RTZR: final=true
+        ↓ .filter(isFinal) 통과
+result → handleFinalStt(session, callId, result.text(), capturedHistory)
+        ↓
+history.add(Message("user", finalText))      ← 사용자 발화 누적
+llmService.chat(history)                     ← 전체 이력으로 LLM 호출
+history.add(Message("assistant", response))  ← 응답 누적
+ttsService.synthesize(response)              ← TTS
+sendJson(BOT_READY)                          ← 브라우저 전송
+        ↓
+startNextSttSession(session, callId, history)
+  ├─ oldSink.tryEmitComplete()   ← 기존 Sink 명시적 종료 (audioStream 구독 정리)
+  ├─ 새 Sink 생성 → sinkMap 덮어쓰기
+  └─ 새 구독 시작 → 다음 청크 대기
+        ↓
+발화 2 청크 도착 → 새 Sink → RTZR → final=true → handleFinalStt(history 누적된 채로)
+        ↓
+반복...
+```
+
+STT는 발화마다 새로 시작하지만 대화 이력(history)은 통화 내내 끊기지 않고 이어진다.
+
+### capturedHistory — 클로저 캡처
+
+`historyMap`에서 꺼낸 List 객체를 변수에 직접 담아 람다 안에서 사용한다.
+
+```java
+List<LlmService.Message> capturedHistory = historyMap.get(session.getId());
+sttService.recognize(...)
+    .subscribe(result -> handleFinalStt(..., capturedHistory));
+//                                           ↑ 람다가 바깥 변수를 기억 = 클로저
+```
+
+`afterConnectionClosed`에서 `historyMap.remove()`가 실행돼도 `capturedHistory`가 List 객체를 직접 참조하고 있으므로 GC되지 않는다. `startNextSttSession`에서 `history`로 넘길 때도 새로 만들지 않고 같은 객체를 계속 전달하므로 발화가 거듭될수록 한 List에 누적된다.
+
+```
+발화 1 후: [user:"안녕하세요", assistant:"반갑습니다"]
+발화 2 후: [user:"안녕하세요", assistant:"반갑습니다", user:"요금문의", assistant:"요금제 안내..."]
+발화 3 후: [..., user:"LTE 요금제", assistant:"..."]
+```
+
+LLM 호출 시 이 전체 이력을 매번 전달하므로 Claude가 앞 대화 맥락을 알고 답할 수 있다.
+
+**메모리 정리:** List는 마지막 STT 구독이 종료될 때 참조가 끊겨 GC가 수거한다. 통화 세션 수명과 동일하다.
+
 ### 서버 → 브라우저 메시지 타입
 
 | type | 시점 | 주요 필드 |
