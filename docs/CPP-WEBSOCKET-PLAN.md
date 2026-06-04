@@ -192,13 +192,49 @@ Java 버전과 **완전히 동일**하다. 브라우저 코드 변경 없음.
 
 ---
 
-## 검토 항목
+## 검토 항목 결정 내용
 
-구현 전 확인이 필요한 사항:
+| # | 항목 | 결정 |
+|---|---|---|
+| 1 | C++ 프로젝트 위치 | 현재 저장소 안 `cpp-ws-server/` |
+| 2 | RTZR 토큰 관리 | C++ 독립 구현 (Java 로직 그대로 이식) |
+| 3 | 대화 이력 관리 | C++ 자체 관리 (Java `historyMap`과 동일 구조) |
+| 4 | 빌드 환경 | devcontainer Dockerfile에 추가 |
+| 5 | Spring REST 인증 | 인증 없음 (내부 통신) |
+| 6 | 포트 | `devcontainer.json` `forwardPorts`에 9090 추가 |
 
-- [ ] C++ 프로젝트 위치 — 현재 저장소 안 (`cpp-ws-server/`) vs 별도 저장소
-- [ ] RTZR 토큰 관리 — C++에서 독립적으로 발급/갱신
-- [ ] 대화 이력 관리 — C++에서 세션별 history 유지 방법
-- [ ] 빌드 환경 — devcontainer에 C++ 빌드 도구 추가 필요 (cmake, g++, 라이브러리)
-- [ ] Spring REST 인증 — C++ → Spring 호출 시 인증 필요 여부
-- [ ] 포트 충돌 — devcontainer `forwardPorts`에 9090 추가 필요
+### 빌드 환경 — devcontainer Dockerfile 추가 패키지
+
+```dockerfile
+RUN apt-get install -y \
+    cmake \
+    g++ \
+    libboost-dev \
+    libboost-system-dev \
+    libssl-dev \
+    libcurl4-openssl-dev
+```
+
+### 대화 이력 관리 — C++ 구조
+
+Java `historyMap`과 동일한 구조로 관리한다.
+
+```cpp
+struct Message {
+    std::string role;     // "user" or "assistant"
+    std::string content;
+};
+
+// sessionId → 대화 이력
+std::map<std::string, std::vector<Message>> historyMap;
+```
+
+### RTZR 토큰 관리 — C++ 구현
+
+Java `RtzrWebSocketSttService.refreshToken()`과 동일한 로직.
+
+```cpp
+// libcurl로 POST https://openapi.vito.ai/v1/authenticate 호출
+// 응답에서 access_token, expire_at 저장
+// 5분마다 만료 10분 이내면 갱신 (별도 스레드 또는 타이머)
+```
