@@ -149,20 +149,145 @@ C++ 서버: TTS_TEXT → 브라우저 전송
 
 ---
 
+## 서비스 인터페이스 설계 — Java 대응 C++ 구조
+
+Java의 어댑터 패턴을 C++에서도 동일하게 적용한다.
+`WsServer`(Java의 `CtiWebSocketHandler` 대응)는 인터페이스만 의존한다.
+
+> **LLM/TTS도 인터페이스를 유지하는 이유:**
+> Java 설계 원칙("외부 서비스는 반드시 인터페이스를 통해서만 호출")을 C++에서도 동일하게 적용한다.
+> 지금은 `SpringLlmService`/`SpringTtsService`지만 나중에 C++에서 Claude API/Google TTS를 직접 호출하는
+> 구현체로 교체할 때 `WsServer` 변경이 없다.
+
+### SttService
+
+```cpp
+// SttService.h — Java SttService 인터페이스 대응
+struct SttResult {
+    std::string text;    // Java: String text
+    bool isFinal;        // Java: boolean isFinal
+};
+
+using SttCallback      = std::function<void(SttResult)>;
+using SttErrorCallback = std::function<void(std::string)>;
+
+class SttService {
+public:
+    // Java: Flux<SttResult> recognize(Flux<byte[]> audioStream, String callId)
+    // C++:  Flux 대신 콜백 방식 (onResult, onError)
+    virtual void recognize(const std::string& callId,
+                           SttCallback onResult,
+                           SttErrorCallback onError) = 0;
+
+    // Java: sink.tryEmitNext(chunk) 대응 — 청크 전달
+    virtual void sendChunk(const std::vector<uint8_t>& chunk) = 0;
+
+    // Java: sink.tryEmitComplete() 대응 — 스트림 종료
+    virtual void complete() = 0;
+
+    virtual ~SttService() = default;
+};
+
+// RtzrWebSocketSttService — Java RtzrWebSocketSttService 대응
+class RtzrWebSocketSttService : public SttService {
+    void recognize(...) override;  // RTZR WebSocket 직접 연결
+    void sendChunk(...) override;
+    void complete() override;
+};
+```
+
+**Java Flux vs C++ 콜백 비교**
+
+```
+Java:
+  sttService.recognize(sink.asFlux(), callId)
+      .filter(isFinal)
+      .subscribe(result -> handleFinalStt(...))
+
+C++:
+  sttService->recognize(callId,
+      [](SttResult r) { if (r.isFinal) handleFinalStt(r.text); },  // onResult
+      [](std::string err) { /* 오류 처리 */ }                       // onError
+  );
+```
+
+### LlmService
+
+```cpp
+// LlmService.h — Java LlmService 인터페이스 대응
+struct Message {
+    std::string role;     // "user" or "assistant"
+    std::string content;
+};
+
+class LlmService {
+public:
+    // Java: String chat(List<Message> messages, String callId)
+    virtual std::string chat(const std::vector<Message>& messages,
+                             const std::string& callId) = 0;
+    virtual ~LlmService() = default;
+};
+
+// SpringLlmService — POST /api/cti/llm/chat 호출
+class SpringLlmService : public LlmService {
+    std::string chat(...) override;  // libcurl HTTP POST
+};
+```
+
+### TtsService
+
+```cpp
+// TtsService.h — Java TtsService 인터페이스 대응
+class TtsService {
+public:
+    // Java: byte[] synthesize(String text, String callId)
+    virtual std::vector<uint8_t> synthesize(const std::string& text,
+                                            const std::string& callId) = 0;
+    virtual ~TtsService() = default;
+};
+
+// SpringTtsService — POST /api/cti/tts/synthesize 호출
+class SpringTtsService : public TtsService {
+    std::vector<uint8_t> synthesize(...) override;  // libcurl HTTP POST
+};
+```
+
+### Java vs C++ 대응표
+
+| Java | C++ |
+|---|---|
+| `SttService` (interface) | `SttService` (abstract class) |
+| `RtzrWebSocketSttService` | `RtzrWebSocketSttService` |
+| `LlmService` (interface) | `LlmService` (abstract class) |
+| `ClaudeApiLlmService` | `SpringLlmService` (Spring REST 호출) |
+| `TtsService` (interface) | `TtsService` (abstract class) |
+| `GoogleCloudTtsService` | `SpringTtsService` (Spring REST 호출) |
+| `Flux<byte[]>` | 콜백 (`SttCallback`) |
+| `SttResult` (record) | `SttResult` (struct) |
+| `LlmService.Message` (record) | `Message` (struct) |
+| `CtiWebSocketHandler` | `WsServer` |
+
+---
+
 ## 프로젝트 디렉토리 구조 (안)
 
 ```
 voicebot-js/
-├── src/                          ← 기존 Spring Boot (변경 없음)
-├── frontend/                     ← 기존 React (환경변수만 추가)
-└── cpp-ws-server/                ← 신규 C++ 프로젝트
+├── src/                              ← 기존 Spring Boot (변경 없음)
+├── frontend/                         ← 기존 React (환경변수만 추가)
+└── cpp-ws-server/                    ← 신규 C++ 프로젝트
     ├── CMakeLists.txt
     ├── main.cpp
     └── src/
-        ├── WsServer.cpp          ← WebSocket 서버 (브라우저 연결)
-        ├── RtzrSttClient.cpp     ← RTZR WebSocket 클라이언트
-        ├── SpringApiClient.cpp   ← Spring REST 호출 (LLM/TTS)
-        └── CallSession.cpp       ← 세션/이력 관리
+        ├── WsServer.h/cpp            ← CtiWebSocketHandler 대응 (오케스트레이터)
+        ├── service/
+        │   ├── SttService.h          ← STT 인터페이스
+        │   ├── RtzrWebSocketSttService.h/cpp  ← STT 구현체 (RTZR 직접)
+        │   ├── LlmService.h          ← LLM 인터페이스
+        │   ├── SpringLlmService.h/cpp ← LLM 구현체 (Spring REST)
+        │   ├── TtsService.h          ← TTS 인터페이스
+        │   └── SpringTtsService.h/cpp ← TTS 구현체 (Spring REST)
+        └── CallSession.h             ← 세션/이력 관리
 ```
 
 ---
