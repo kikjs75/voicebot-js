@@ -700,7 +700,54 @@ Sink 없이 직접 연결할 수 없기 때문에 Sink를 중간 브리지로 �
 
 ---
 
-## 8. 주요 로그 태그
+## 8. Spring MVC vs Spring WebFlux
+
+현재 프로젝트는 **Spring MVC** 구조다. Spring WebFlux가 아니다.
+
+```
+pom.xml 현재:
+spring-boot-starter-web        ← Spring MVC (서블릿 기반)
+spring-boot-starter-websocket  ← WebSocket
+
+WebFlux였다면:
+spring-boot-starter-webflux    ← Spring WebFlux (Netty 기반)
+```
+
+**Spring MVC인데 왜 WebClient와 Flux/Mono를 쓰나?**
+
+Spring MVC에서도 Reactor 라이브러리(Flux/Mono)와 WebClient를 부분적으로 사용할 수 있다.
+
+```
+Spring MVC   → HTTP 요청 처리 방식 (서블릿 기반, 스레드 블로킹)
+WebClient    → HTTP 클라이언트 도구 (MVC에서도 사용 가능)
+Flux/Mono    → Reactor 라이브러리  (MVC에서도 사용 가능)
+```
+
+현재 구조: **Spring MVC + 부분적 Reactor 사용**
+
+```
+HTTP 요청 처리  → Spring MVC (서블릿)
+외부 API 호출  → WebClient (Reactor)
+음성 스트리밍  → Sinks/Flux (Reactor)
+WebSocket     → Spring WebSocket (서블릿 기반)
+```
+
+**MVC 구조임을 알 수 있는 단서들**
+
+```java
+// LlmService.chat()에서 .block() 사용
+.bodyToMono(Map.class)
+.block();  // ← WebFlux였다면 .block() 없이 Flux/Mono 체인으로만 연결해야 함
+
+// publishOn(Schedulers.boundedElastic()) 사용
+.publishOn(Schedulers.boundedElastic())
+// ← MVC의 NIO 스레드에서 .block() 호출을 막기 위한 스레드 전환
+//   WebFlux였다면 이 처리가 불필요
+```
+
+---
+
+## 9. 주요 로그 태그
 
 | 태그 | 위치 | 의미 |
 |---|---|---|
