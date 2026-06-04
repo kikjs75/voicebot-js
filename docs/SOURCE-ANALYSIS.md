@@ -387,6 +387,49 @@ sink.tryEmitError(e);     // 오류 종료 → 구독자 onError 수신
 - `startNextSttSession()` — 다음 발화 준비 시 기존 Sink 닫을 때
 - `afterConnectionClosed()` — WebSocket 연결 종료 시
 
+### WebSocket과 Flux의 관계
+
+WebSocket과 Flux는 직접적인 관계가 없다. Flux는 WebSocket의 요구사항이 아니다.
+
+**WebSocket은 콜백 방식이다**
+
+Spring이 WebSocket 프레임이 도착할 때마다 자동으로 메서드를 호출한다.
+
+```java
+// 청크 올 때마다 Spring이 자동 호출 (콜백)
+handleBinaryMessage(session, message) {
+    byte[] chunk = message.getPayload().array();
+    sink.tryEmitNext(chunk);
+}
+
+// 텍스트 올 때마다 Spring이 자동 호출 (콜백)
+handleTextMessage(session, message) { ... }
+```
+
+"데이터 오면 이 메서드 불러줘" 라고 등록해두는 이벤트 방식이다.
+
+**STT 서비스는 Flux 방식이다**
+
+```java
+// SttService 인터페이스 — Flux<byte[]>를 받도록 설계
+Flux<SttResult> recognize(Flux<byte[]> audioStream, String callId);
+```
+
+RTZR STT는 음성이 시간순으로 계속 흘러들어오는 구조라 Flux가 자연스럽다.
+
+**두 방식이 달라서 Sink로 연결**
+
+```
+WebSocket 콜백 방식          STT 서비스 스트림 방식
+(handleBinaryMessage)   →   (recognize(Flux<byte[]>))
+    이벤트 발생 시 호출          구독해서 데이터 수신
+         ↑                           ↑
+         └──────── Sink ─────────────┘
+                  (브리지)
+```
+
+Sink 없이 직접 연결할 수 없기 때문에 Sink를 중간 브리지로 사용한다.
+
 ---
 
 ## 8. 주요 로그 태그
