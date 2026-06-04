@@ -65,6 +65,16 @@ tail -f logs/app.log | grep -E "Started|RTZR.*토큰|TTS-GOOGLE|ERROR"
 Started VoicebotApplication in 2.x seconds
 ```
 
+### 실행 상태 확인
+
+```bash
+# Spring Boot
+lsof -ti:8080 && echo "실행중" || echo "중지됨"
+
+# Vite
+lsof -ti:5173 && echo "실행중" || echo "중지됨"
+```
+
 ### Spring Boot 재시작 (코드 변경 후)
 
 ```bash
