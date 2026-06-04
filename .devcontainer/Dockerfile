@@ -32,5 +32,15 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
 RUN apt-get update && apt-get install -y python3-pip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# C++ 빌드 환경 (cpp-ws-server)
+RUN apt-get update && apt-get install -y \
+    cmake \
+    g++ \
+    libboost-dev \
+    libboost-system-dev \
+    libssl-dev \
+    libcurl4-openssl-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Claude Code (root로 전역 설치)
 RUN npm install -g @anthropic-ai/claude-code
