@@ -17,6 +17,7 @@ env/
 
 # 로그 파일
 *.log
+logs/
 
 # Claude Code 설정
 .claude/
