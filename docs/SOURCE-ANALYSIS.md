@@ -255,7 +255,75 @@ src/main/resources/
 
 ---
 
-## 6. 주요 로그 태그
+## 6. WebSocket 방식 — Raw WS vs STOMP
+
+### 현재 구현: Raw WebSocket
+
+Spring WebSocket을 일반적으로 사용할 때는 **STOMP 프로토콜**을 얹어 쓴다.
+현재는 음성 스트리밍 특성에 맞게 **Raw WebSocket**을 직접 구현했다.
+
+| | STOMP | Raw WS (현재) |
+|---|---|---|
+| 용도 | 채팅, 알림, 브로드캐스트 | 음성 스트리밍, 1:1 파이프라인 |
+| 메시지 형식 | 텍스트 전용 (헤더 포함) | 텍스트 + binary 혼용 가능 |
+| 라우팅 | `/topic/*`, `/app/*` 자동 | 직접 구현 (`sendJson()`) |
+| 구독 개념 | 토픽 구독 (1:N) | 연결 1개 = 통화 1건 (1:1) |
+| Spring 구현 | `@MessageMapping`, `@SendTo` | `AbstractWebSocketHandler` 상속 |
+
+### Raw WS가 음성 스트리밍에 적합한 이유
+
+250ms마다 4096 바이트 binary를 전송할 때 STOMP는 매번 헤더를 붙여야 한다:
+
+```
+STOMP:                          Raw WS:
+SEND\n                          [binary data]  ← 그냥 전송
+destination:/app/audio\n
+content-type:application/octet-stream\n
+\n
+[binary data]
+```
+
+헤더 오버헤드 없이 바로 전송할 수 있어 음성처럼 작은 데이터를 자주 보낼 때 효율적이다.
+또한 같은 연결에서 binary(음성)와 text(JSON 이벤트)를 섞어 보낼 수 있다.
+
+### Spring 구현 구조 비교
+
+```
+STOMP 방식:
+  WebSocketConfig (implements WebSocketMessageBrokerConfigurer)
+    └─ @MessageMapping("/chat.send") + @SendTo("/topic/chat")
+
+Raw WS 방식 (현재):
+  WebSocketConfig (implements WebSocketConfigurer)
+    └─ registry.addHandler(ctiWebSocketHandler, "/ws/cti")
+
+  CtiWebSocketHandler (extends AbstractWebSocketHandler)
+    ├─ afterConnectionEstablished()  ← 연결 시
+    ├─ handleBinaryMessage()         ← binary 수신 시 (음성 청크)
+    ├─ handleTextMessage()           ← text 수신 시 (CTI 이벤트)
+    └─ afterConnectionClosed()       ← 종료 시
+```
+
+### 전체 WebSocket 연결 구조
+
+브라우저와 RTZR STT 모두 Raw WS로 연결된다. Spring Boot가 중간 브리지 역할을 한다.
+
+```
+브라우저 ←── Raw WS ──→ Spring Boot ←── Raw WS ──→ RTZR STT
+           /ws/cti                    wss://openapi.vito.ai/...
+        (Spring WebSocket)            (OkHttp WebSocket)
+
+브라우저 → Spring: PCM 음성 청크 (binary, 250ms마다)
+브라우저 → Spring: CTI 이벤트 (text JSON)
+Spring  → 브라우저: STT_FINAL / BOT_THINKING / LLM_RESULT / TTS_TEXT / BOT_READY (text JSON)
+
+Spring  → RTZR: PCM 음성 청크 (binary)
+RTZR    → Spring: 인식 결과 JSON (text)
+```
+
+---
+
+## 7. 주요 로그 태그
 
 | 태그 | 위치 | 의미 |
 |---|---|---|
