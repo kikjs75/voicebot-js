@@ -56,7 +56,7 @@ echo "PID: $!"
 
 ```bash
 # 백그라운드 실행 시 로그 확인
-tail -f app-real.log | grep -E "Started|RTZR.*토큰|TTS-GOOGLE|ERROR"
+tail -f logs/app.log | grep -E "Started|RTZR.*토큰|TTS-GOOGLE|ERROR"
 ```
 
 ```
@@ -64,6 +64,19 @@ tail -f app-real.log | grep -E "Started|RTZR.*토큰|TTS-GOOGLE|ERROR"
 [TTS-GOOGLE] 서비스 계정 자격증명 로드 완료
 Started VoicebotApplication in 2.x seconds
 ```
+
+### Vite 프론트엔드 기동 (CTI WebSocket 테스트 시)
+
+Spring Boot가 실행 중인 상태에서 **별도 터미널**로 실행한다.
+
+```bash
+cd /workspaces/voicebot-js/frontend
+npm run dev
+```
+
+브라우저: `http://localhost:5173`
+
+> Host OS 브라우저에서 접근하려면 `.devcontainer/devcontainer.json`에 `"forwardPorts": [8080, 5173]` 설정이 필요하다.
 
 ---
 
