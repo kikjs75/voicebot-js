@@ -463,14 +463,76 @@ Claude API(`claude-sonnet-4-6`)를 호출하는 구현체.
 - intent: 환불 / 배송문의 / 기술지원 / 요금문의 / 예약 / 기타
 - response: 2~3문장 이내 구어체 한국어, 마크다운/이모지 금지
 
+**Claude API 실제 응답 JSON 구조**
+
+```json
+{
+  "id": "msg_123",
+  "type": "message",
+  "content": [
+    {
+      "type": "text",
+      "text": "{\"intent\":\"요금문의\",\"response\":\"요금제 안내해드릴게요\"}"
+    }
+  ],
+  "model": "claude-sonnet-4-6"
+}
+```
+
+**응답에서 텍스트 추출**
+
+```java
+Map<?, ?> response = ...bodyToMono(Map.class).block();
+// Map<?, ?>: key/value 타입이 불확실할 때 쓰는 와일드카드
+// Map<String, Object>로 써도 되지만 컴파일러 경고 방지용으로 <?> 사용
+
+List<?> content = (List<?>) response.get("content");
+// content 배열 꺼내기 → [{"type":"text","text":"..."}]
+
+Map<?, ?> first = (Map<?, ?>) content.get(0);
+// 첫 번째 항목 꺼내기 (Claude는 항상 1개만 반환)
+
+return (String) first.get("text");
+// 실제 텍스트 추출 → "{\"intent\":\"요금문의\",...}"
+```
+
+```
+response (전체 Map)
+    ↓ .get("content")
+content (List — 배열)
+    ↓ .get(0)
+first (Map — 첫 번째 항목)
+    ↓ .get("text")
+"{\"intent\":\"요금문의\"...}"  ← 최종 반환값
+```
+
 **응답 파싱 (`CtiWebSocketHandler`)**
+
+`chat()`이 반환한 JSON 문자열을 `objectMapper.readTree()`로 객체화한다.
+
+```java
+// objectMapper.readTree() = JSON 문자열 → JsonNode 객체 (트리 구조)
+JsonNode node = objectMapper.readTree(llmRaw);
+intent   = node.path("intent").asText("기타");   // "요금문의"
+response = node.path("response").asText(llmRaw); // "요금제 안내해드릴게요"
+// 파싱 실패 시 llmRaw 그대로 사용 (안전 처리)
 ```
-llmRaw = "{"intent":"기술지원","response":"노트북 전원 버튼을..."}"
-        ↓ JSON 파싱
-intent   = "기술지원"
-response = "노트북 전원 버튼을..."
-        ↓ 파싱 실패 시 llmRaw 그대로 사용 (안전 처리)
+
+`readTree()` vs 다른 방법:
+
+```java
+// readTree() → JsonNode (key로 직접 탐색, 현재 사용)
+JsonNode node = objectMapper.readTree(json);
+node.path("intent").asText();
+
+// readValue() → 특정 클래스로 변환 (전용 클래스 필요)
+MyClass obj = objectMapper.readValue(json, MyClass.class);
+
+// readValue() → Map으로 변환
+Map map = objectMapper.readValue(json, Map.class);
 ```
+
+별도 클래스 없이 key로 바로 꺼낼 수 있어서 `readTree()`를 사용한다.
 
 ---
 
