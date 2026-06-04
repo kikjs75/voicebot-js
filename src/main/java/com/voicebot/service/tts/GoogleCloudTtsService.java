@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -85,8 +86,19 @@ public class GoogleCloudTtsService implements TtsService {
         return Base64.getDecoder().decode(audioContent);
     }
 
-    // 만료 체크 후 자동 갱신 (1시간 주기) — 별도 스케줄러 불필요
-    private String getAccessToken() {
+    // 5분마다 실행 — 만료 10분 이내면 자동 갱신
+    @Scheduled(fixedRate = 300_000)
+    public void scheduleTokenRefresh() {
+        try {
+            credentials.refreshIfExpired();
+            log.info("[TTS-GOOGLE] 토큰 갱신 확인 완료 expire={}",
+                    credentials.getAccessToken().getExpirationTime());
+        } catch (IOException e) {
+            log.error("[TTS-GOOGLE] 토큰 갱신 실패", e);
+        }
+    }
+
+    private synchronized String getAccessToken() {
         try {
             credentials.refreshIfExpired();
             return credentials.getAccessToken().getTokenValue();
