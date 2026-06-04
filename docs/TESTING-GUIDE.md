@@ -43,14 +43,20 @@ cat .env  # RTZR, ANTHROPIC, GOOGLE 키 설정 여부 확인
 
 # 3) Spring Boot 기동
 set -a && source .env && set +a
+
+# 포그라운드 (로그 터미널에 직접 출력)
 SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
+
+# 백그라운드 (로그 파일에 저장)
+nohup env SPRING_PROFILES_ACTIVE=real mvn spring-boot:run > app-real.log 2>&1 &
+echo "PID: $!"
 ```
 
 기동 확인 로그 (real profile):
 
 ```bash
 # 백그라운드 실행 시 로그 확인
-tail -f /tmp/spring-real.log | grep -E "Started|RTZR.*토큰|TTS-GOOGLE|ERROR"
+tail -f app-real.log | grep -E "Started|RTZR.*토큰|TTS-GOOGLE|ERROR"
 ```
 
 ```
@@ -174,7 +180,7 @@ docker exec voicebot-redis redis-cli GET "call:session:TEST-SIM-001"
 ```bash
 # Spring Boot 실행 중인 터미널에서 직접 확인하거나
 # 백그라운드 실행 시:
-tail -f /tmp/spring-real.log | grep -E "PERF|STT-RTZR.*final|ERROR"
+tail -f app-real.log | grep -E "PERF|STT-RTZR.*final|ERROR"
 ```
 
 예시 출력:
@@ -390,7 +396,7 @@ application-real.yml     ← real profile (RTZR + Claude + Google TTS)
 
 ```bash
 # 토큰 발급 시간 및 만료 로그
-grep "RTZR.*토큰" /tmp/spring-real.log
+grep "RTZR.*토큰" app-real.log
 # [STT-RTZR] 토큰 발급 완료 expire_at=1780421420
 # expire_at = Unix timestamp (6시간 후 만료)
 ```
@@ -402,7 +408,7 @@ grep "RTZR.*토큰" /tmp/spring-real.log
 ls -la env/
 
 # 자격증명 로드 로그
-grep "TTS-GOOGLE" /tmp/spring-real.log
+grep "TTS-GOOGLE" app-real.log
 ```
 
 ### 시뮬레이터 시나리오 확인
