@@ -204,6 +204,136 @@ recognize(audioStream: Flux<byte[]>, callId)
 - `@Scheduled(fixedRate=300_000)` — 5분마다 만료 확인, 10분 이내면 갱신
 - 만료 시각: Unix timestamp (`expire_at`)
 
+### recognize() 내부 상세
+
+크게 4개 덩어리로 구성된다.
+
+**1. RTZR WebSocket 연결**
+
+```java
+return Flux.create(emitter -> {
+    // emitter = Flux로 데이터를 밀어넣는 손
+    Request request = new Request.Builder()
+            .url(buildWsUrl())                                    // wss://openapi.vito.ai/...
+            .header("Authorization", "Bearer " + accessToken.get())  // 인증 토큰
+            .build();
+    WebSocket ws = okHttpClient.newWebSocket(request, new WebSocketListener() { ... });
+```
+
+`Flux.create(emitter -> {...})`는 내가 직접 데이터를 밀어넣는 Flux를 만드는 방법이다.
+`emitter`가 Sink처럼 `next()` / `complete()` / `error()`를 직접 호출한다.
+
+**2. RTZR 콜백 4가지**
+
+```java
+onOpen()    → 연결 성공 시 로그만 찍음
+
+onMessage() → RTZR이 인식 결과 보낼 때
+              // {"alternatives":[{"text":"안녕하세요"}], "final": false}
+              // {"alternatives":[{"text":"안녕하세요"}], "final": true}
+              emitter.next(new SttResult(text, isFinal))  // Flux로 흘려보냄
+              isFinal=true 면 ws.close()                  // 연결 끊기
+
+onClosed()  → emitter.complete()  // Flux 완료
+
+onFailure() → emitter.error()     // Flux 오류
+```
+
+핵심은 `onMessage()`다. RTZR JSON을 파싱해서 `emitter.next()`로 Flux에 흘려보낸다.
+
+```
+RTZR → onMessage("안녕하...",  final=false) → emitter.next(SttResult("안녕하...",  false)) → Flux
+RTZR → onMessage("안녕하세요", final=true)  → emitter.next(SttResult("안녕하세요", true))  → Flux
+                                               ws.close()
+RTZR → onClosed()                          → emitter.complete()                            → Flux 종료
+```
+
+**3. audioStream 구독 → RTZR로 전송**
+
+```java
+audioStream.subscribe(
+    chunk -> ws.send(ByteString.of(chunk)),  // 청크 올 때마다 RTZR로 전송
+    error -> { ws.close(1000, "error"); },   // 오류 시 연결 닫기
+    () -> { ws.send("EOS"); }               // Sink 완료 시 "끝났어" 신호
+);
+```
+
+`EOS`는 "더 이상 보낼 음성 없어, 최종 결과 줘" 신호다.
+
+**4. emitter.onCancel**
+
+```java
+emitter.onCancel(() -> ws.close(1000, "cancelled"));
+```
+
+Flux 구독자(CtiWebSocketHandler)가 구독을 취소하면 RTZR WebSocket도 닫는다. 리소스 정리용이다.
+
+**전체 흐름**
+
+```
+recognize() 호출
+    ↓
+RTZR WebSocket 연결 열림 + audioStream 구독 시작
+    ↓
+[Sink에 청크 들어올 때마다]
+    chunk → ws.send() → RTZR
+    ↓
+[RTZR이 결과 보낼 때마다]
+    onMessage() → emitter.next(SttResult) → Flux로 흘러나감
+    ↓
+[Sink 완료 시]
+    ws.send("EOS") → RTZR 최종 결과 전송 → ws.close()
+    onClosed() → emitter.complete() → Flux 종료
+```
+
+### SttResult — 인식 결과 데이터 클래스
+
+```java
+public interface SttService {
+    Flux<SttResult> recognize(Flux<byte[]> audioStream, String callId);
+
+    record SttResult(String text, boolean isFinal) {}
+    //     ↑ SttService 인터페이스 안에 정의
+}
+```
+
+`record`는 Java 16 문법으로 데이터만 담는 클래스를 짧게 선언하는 방법이다.
+아래 두 코드는 완전히 동일하다:
+
+```java
+// record 문법 (짧게)
+record SttResult(String text, boolean isFinal) {}
+
+// 일반 클래스 (길게)
+class SttResult {
+    private final String text;
+    private final boolean isFinal;
+    public SttResult(String text, boolean isFinal) { ... }
+    public String text() { return text; }
+    public boolean isFinal() { return isFinal; }
+}
+```
+
+`SttResult`가 `SttService` 안에 정의되어 있어서 밖에서 참조할 때 `SttService.SttResult`로 접근한다:
+
+```java
+.filter(SttService.SttResult::isFinal)
+// 풀어쓰면:
+.filter(result -> result.isFinal())  // isFinal=true인 것만 통과
+```
+
+**emitter와 Flux 연결 고리**
+
+```
+RTZR WebSocket         emitter              Flux<SttResult>
+onMessage() 호출 → emitter.next() ──→ [SttResult, SttResult, ...] → 구독자에게 흘러감
+onClosed()  호출 → emitter.complete() → Flux 종료
+
+CtiWebSocketHandler
+    .filter(SttService.SttResult::isFinal)  // isFinal=true만 통과
+    .subscribe(result -> handleFinalStt())  // 최종 결과 처리
+```
+
 ---
 
 ## 4. LLM — ClaudeApiLlmService
