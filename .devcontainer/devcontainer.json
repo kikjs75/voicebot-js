@@ -16,7 +16,7 @@
     "TZ": "Asia/Seoul"
   },
   "forwardPorts": [8080, 5173],
-  "postCreateCommand": "echo 'Dev container ready' && echo \"alias ll='ls -alF'\" >> ~/.bashrc && sudo apt-get install -y python3-pip",
+  "postCreateCommand": "echo 'Dev container ready' && echo \"alias ll='ls -alF'\" >> ~/.bashrc",
   "postStartCommand": "sudo chmod 666 /var/run/docker.sock",
   "customizations": {
     "vscode": {
