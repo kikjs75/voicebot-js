@@ -179,3 +179,31 @@ SSH 키는 `~/.ssh/`에 저장되는데, 컨테이너가 재생성되면 사라�
 ```
 
 호스트 OS(Mac/Windows)에서 키를 한 번만 만들어두면 컨테이너가 재생성돼도 자동으로 사용된다.
+
+---
+
+## 커밋 메시지 규칙 (Conventional Commits)
+
+이 프로젝트는 커밋 메시지에 **Conventional Commits** 규칙을 사용한다.
+
+```
+feat(llm): 콜센터 시스템 프롬프트 추가
+│    │      └─ 실제 설명
+│    └─ 범위: 어느 부분을 수정했는지
+└─ prefix: 변경의 성격
+```
+
+| prefix | 의미 |
+|---|---|
+| `feat` | 새 기능 추가 |
+| `fix` | 버그 수정 |
+| `chore` | 기능 변경 없는 잡일 (설정, 빌드 등) |
+| `docs` | 문서 수정 |
+| `refactor` | 동작 변경 없는 코드 구조 개선 |
+| `test` | 테스트 추가/수정 |
+
+**Co-Authored-By** 줄은 Claude와 함께 작성한 커밋임을 표시한다.
+
+```
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+```
