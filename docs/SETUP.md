@@ -88,25 +88,94 @@ SPRING_PROFILES_ACTIVE=real ./mvnw spring-boot:run
 
 ---
 
-## GitHub Push 설정 (devcontainer)
+## GitHub Push 인증 설정 (devcontainer)
 
-devcontainer 안에서는 SSH 키가 없어 `git push`가 실패한다.
-HTTPS + Personal Access Token 방식으로 인증한다.
+`git push`는 GitHub 서버에 코드를 올리는 행위다.
+GitHub은 "이 사람이 진짜 이 저장소 주인인가"를 확인해야 하며, 방법은 두 가지다.
 
-### 토큰 발급
+| | HTTPS + 토큰 | SSH 키 |
+|---|---|---|
+| 증명 방식 | 아는 값 (토큰) | 가진 것 (개인키) |
+| 설정 난이도 | 쉬움 | 복잡 |
+| 만료 | 있음 (설정에 따라) | 없음 |
+| devcontainer | 컨테이너마다 재설정 필요 | 호스트 키 공유 시 한 번만 |
+
+---
+
+### 방법 A: HTTPS + Personal Access Token (간단)
+
+토큰 = 특정 권한만 가진 임시 비밀번호. URL에 포함하면 git이 `.git/config`에 저장해두고
+이후 `git push` 시 자동으로 사용한다.
+
+**토큰 발급**
 1. https://github.com/settings/tokens → **Generate new token (classic)**
-2. `repo` 권한 체크 후 생성
+2. `repo` 권한 체크 후 생성 (만료 없이 쓰려면 **No expiration** 선택)
 
-### Remote URL에 토큰 포함
+**Remote URL에 토큰 포함**
 
 ```bash
-git remote set-url origin https://<GitHub_사용자명>:<토큰>@github.com/<org>/<repo>.git
+git remote set-url origin https://<사용자명>:<토큰>@github.com/kikjs75/voicebot-js.git
 ```
 
-예시:
+이후 `git push`만 하면 된다. 토큰이 만료되면 새 토큰으로 위 명령을 다시 실행한다.
+
+> **주의:** `.git/config`에 토큰이 평문으로 저장된다. 이 파일을 공유하거나 복사할 때 토큰도 함께 넘어가므로 주의한다.
+
+---
+
+### 방법 B: SSH 키 (권장 — 만료 없음)
+
+수학적으로 연결된 열쇠 두 개(개인키/공개키)를 사용한다.
+공개키는 GitHub에 걸어두고, 개인키는 내 PC에만 보관한다.
+push 시 비밀값을 전송하지 않고 서명으로만 증명하므로 더 안전하다.
+
+**1. SSH 키 생성**
+
 ```bash
-git remote set-url origin https://kikjs75:<토큰>@github.com/kikjs75/voicebot-js.git
+ssh-keygen -t ed25519 -C "kikjs75@gmail.com"
+# 파일 위치, passphrase 모두 Enter (기본값)
 ```
 
-이후 `git push`가 인증 없이 동작한다.
-토큰은 `.git/config`에 저장되므로 컨테이너 재시작 후에도 유지된다.
+생성 결과:
+```
+~/.ssh/id_ed25519      ← 개인키 (절대 공유 금지)
+~/.ssh/id_ed25519.pub  ← 공개키 (GitHub에 등록)
+```
+
+**2. 공개키 확인**
+
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+
+**3. GitHub에 공개키 등록**
+
+https://github.com/settings/keys → **New SSH key** → 공개키 붙여넣기
+
+**4. Remote URL을 SSH로 변경**
+
+```bash
+git remote set-url origin git@github.com:kikjs75/voicebot-js.git
+```
+
+**5. 확인**
+
+```bash
+ssh -T git@github.com
+# Hi kikjs75! You've successfully authenticated...
+```
+
+**devcontainer 재시작 문제 해결**
+
+SSH 키는 `~/.ssh/`에 저장되는데, 컨테이너가 재생성되면 사라진다.
+호스트 OS의 키를 컨테이너와 공유하면 한 번만 설정하면 된다.
+
+`.devcontainer/devcontainer.json`에 추가:
+
+```json
+"mounts": [
+  "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,readonly"
+]
+```
+
+호스트 OS(Mac/Windows)에서 키를 한 번만 만들어두면 컨테이너가 재생성돼도 자동으로 사용된다.
