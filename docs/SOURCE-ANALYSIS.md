@@ -493,7 +493,120 @@ src/main/resources/
 
 ---
 
-## 6. WebSocket 방식 — Raw WS vs STOMP
+## 6. 브라우저(React) ↔ Spring 연결 구조
+
+### 브라우저에서 연결 (CtiSimulator.jsx)
+
+```javascript
+const ws = new WebSocket("ws://localhost:8080/ws/cti");
+ws.binaryType = "arraybuffer";
+
+ws.onopen    = () => { ... }   // 연결됐을 때
+ws.onmessage = (e) => { ... }  // 서버에서 메시지 왔을 때
+ws.onclose   = () => { ... }   // 연결 끊겼을 때
+
+ws.send(int16.buffer);           // 음성 청크 전송 (binary)
+ws.send(JSON.stringify({...}));  // 이벤트 전송 (text)
+```
+
+브라우저는 `new WebSocket(url)` 하나로 끝이다. 연결 주소만 맞으면 된다.
+
+### Spring에서 연결 받는 구조
+
+두 파일이 역할을 나눈다:
+
+```
+WebSocketConfig          CtiWebSocketHandler
+"어디서 받을지 등록"     "어떻게 처리할지 구현"
+```
+
+**WebSocketConfig — 주소 등록**
+
+```java
+registry.addHandler(ctiWebSocketHandler, "/ws/cti")
+// 브라우저가 이 주소로 오면 CtiWebSocketHandler에게 넘겨줘
+```
+
+**AbstractWebSocketHandler — 왜 상속받나**
+
+Spring WebSocket은 연결/메시지/종료 이벤트를 받으려면 정해진 인터페이스가 필요하다.
+`AbstractWebSocketHandler`는 Spring이 미리 만들어둔 빈 틀이다:
+
+```java
+// Spring이 만들어둔 빈 틀
+public abstract class AbstractWebSocketHandler {
+    public void afterConnectionEstablished(session) {}   // 비어있음
+    public void handleBinaryMessage(session, message) {} // 비어있음
+    public void handleTextMessage(session, message) {}   // 비어있음
+    public void afterConnectionClosed(session, status) {}// 비어있음
+}
+
+// CtiWebSocketHandler가 틀을 상속받아 필요한 메서드만 채워넣음
+public class CtiWebSocketHandler extends AbstractWebSocketHandler {
+    @Override
+    public void afterConnectionEstablished(session) {
+        // callId 발급, Sink 생성, STT 구독
+    }
+    @Override
+    protected void handleBinaryMessage(session, message) {
+        // sink.tryEmitNext(chunk)
+    }
+    @Override
+    protected void handleTextMessage(session, message) {
+        // CALL_END 처리
+    }
+    @Override
+    public void afterConnectionClosed(session, status) {
+        // Sink 완료, Map 정리
+    }
+}
+```
+
+메서드 안에 뭘 할지만 채워넣으면 된다. 언제 호출할지는 Spring이 알아서 한다.
+
+### Spring이 자동으로 호출하는 흐름
+
+```
+브라우저: ws://localhost:8080/ws/cti 연결 요청
+    ↓ Spring 내부: "/ws/cti" 핸들러 확인
+    ↓ afterConnectionEstablished() 자동 호출
+
+브라우저: binary 데이터 전송
+    ↓ Spring 내부: binary 프레임 감지
+    ↓ handleBinaryMessage() 자동 호출
+
+브라우저: text 데이터 전송
+    ↓ Spring 내부: text 프레임 감지
+    ↓ handleTextMessage() 자동 호출
+
+브라우저: 연결 끊음
+    ↓ Spring 내부: 연결 종료 감지
+    ↓ afterConnectionClosed() 자동 호출
+```
+
+### 전체 그림
+
+```
+브라우저 (React)                 Spring Boot
+new WebSocket(url)
+    │                            WebSocketConfig
+    │ HTTP Upgrade 요청 ──────→  "/ws/cti" 등록 확인
+    │ ←── 101 Switching ──────   CtiWebSocketHandler에게 넘김
+    │
+    │ binary(음성청크) ────────→  handleBinaryMessage()
+    │                                   ↓ sink.tryEmitNext()
+    │ text(CTI이벤트) ────────→  handleTextMessage()
+    │
+    │ ←── text(JSON) ──────────  sendJson() 호출 시
+    │
+    │ 연결 종료 ──────────────→  afterConnectionClosed()
+```
+
+`AbstractWebSocketHandler`를 상속받는 이유: Spring이 "이 메서드들을 구현해두면 때에 맞게 알아서 불러줄게" 라는 약속을 제공하기 때문이다.
+
+---
+
+## 7. WebSocket 방식 — Raw WS vs STOMP
 
 ### 현재 구현: Raw WebSocket
 
@@ -561,7 +674,7 @@ RTZR    → Spring: 인식 결과 JSON (text)
 
 ---
 
-## 7. Sinks — 음성 청크 브리지
+## 8. Sinks — 음성 청크 브리지
 
 WebSocket 콜백(비동기)과 Reactor 스트림을 연결하는 다리.
 밀어넣는 쪽(Producer)과 꺼내는 쪽(Consumer)을 분리해준다.
@@ -700,7 +813,7 @@ Sink 없이 직접 연결할 수 없기 때문에 Sink를 중간 브리지로 �
 
 ---
 
-## 8. Spring MVC vs Spring WebFlux
+## 9. Spring MVC vs Spring WebFlux
 
 현재 프로젝트는 **Spring MVC** 구조다. Spring WebFlux가 아니다.
 
@@ -747,7 +860,7 @@ WebSocket     → Spring WebSocket (서블릿 기반)
 
 ---
 
-## 9. 주요 로그 태그
+## 10. 주요 로그 태그
 
 | 태그 | 위치 | 의미 |
 |---|---|---|
