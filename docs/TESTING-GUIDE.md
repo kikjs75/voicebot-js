@@ -512,7 +512,75 @@ curl -X POST http://llm-simulator:8082/chat \
 
 ---
 
-## 8. 다음 개선 예정 항목
+## 8. 환경변수 관리
+
+### 현재 방식 — `set -a && source .env && set +a`
+
+```bash
+set -a && source .env && set +a
+mvn spring-boot:run
+```
+
+보안 때문이 아니라 **환경변수를 자식 프로세스에 전달하기 위한 기술적 이유**다.
+
+`set -a` 없이 `source .env`만 하면 현재 셸에만 적용되고, `mvn`(자식 프로세스)에는 전달되지 않는다.
+
+**보안 수준**
+
+| 보호 | 여부 |
+|---|---|
+| git 커밋 차단 | ✅ `.gitignore`에 포함 |
+| 파일시스템 접근 차단 | ❌ 파일을 볼 수 있는 누구나 읽을 수 있음 |
+
+개발 환경에서는 이 정도면 충분하다. 진짜 보안이 필요한 건 배포 환경이다.
+
+---
+
+### 개발 환경 대안 — direnv
+
+디렉토리에 들어가면 자동으로 `.env`를 로드하고, 나가면 자동 해제한다.
+매번 `set -a && source .env`를 입력할 필요가 없다.
+
+```bash
+# 설치
+sudo apt-get install -y direnv
+
+# ~/.bashrc에 hook 추가 (최초 1회)
+echo 'eval "$(direnv hook bash)"' >> ~/.bashrc
+source ~/.bashrc
+
+# 프로젝트 루트에 .envrc 파일 생성
+echo 'dotenv' > /workspaces/voicebot-js/.envrc
+
+# 신뢰 허용 (최초 1회)
+direnv allow
+```
+
+이후 디렉토리 진입 시 자동 적용된다.
+
+```bash
+cd /workspaces/voicebot-js
+# direnv: loading .env  ← 자동 로드
+mvn spring-boot:run     # 그냥 실행 가능
+```
+
+---
+
+### 배포 환경 — 플랫폼이 주입
+
+배포 시에는 `.env` 파일 자체를 서버에 올리지 않는다.
+비밀값은 코드/파일이 아닌 플랫폼이 주입하는 것이 원칙이다.
+
+| 환경 | 방법 |
+|---|---|
+| Docker | `docker run --env-file .env` 또는 `-e KEY=VALUE` |
+| Kubernetes | `Secret` 오브젝트로 주입 |
+| AWS | Parameter Store / Secrets Manager |
+| GitHub Actions | Repository Secrets |
+
+---
+
+## 9. 다음 개선 예정 항목
 
 | 항목 | 현재 | 목표 | 방법 |
 |---|---|---|---|
