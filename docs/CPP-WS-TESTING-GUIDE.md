@@ -123,8 +123,7 @@ SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
 # 백그라운드 (logback이 logs/app.log 에 자동 저장)
 nohup env SPRING_PROFILES_ACTIVE=real mvn spring-boot:run > /dev/null 2>&1 &
 echo "PID: $!"
-until grep -q "Started VoicebotApplication" logs/app.log; do sleep 2; done
-echo "Spring Boot 기동 완료"
+until grep -q "Started VoicebotApplication" logs/app.log; do sleep 2; done && echo "Spring Boot 기동 완료"
 ```
 
 기동 확인:
@@ -156,8 +155,7 @@ nohup env \
   RTZR_CLIENT_SECRET=$RTZR_CLIENT_SECRET \
   ./cpp-ws-server/build/voicebot-cpp > /dev/null 2>&1 &
 echo "PID: $!"
-until grep -q "서버 시작" logs/cpp-ws.log 2>/dev/null; do sleep 1; done
-echo "C++ 서버 기동 완료"
+until grep -q "서버 시작" logs/cpp-ws.log 2>/dev/null; do sleep 1; done && echo "C++ 서버 기동 완료"
 ```
 
 기동 확인 로그:
@@ -187,8 +185,7 @@ VITE_WS_URL=ws://localhost:9090/ws/cti npm run dev
 
 # 백그라운드
 VITE_WS_URL=ws://localhost:9090/ws/cti nohup npm run dev > /tmp/vite.log 2>&1 &
-until grep -q "Local:" /tmp/vite.log; do sleep 1; done
-echo "Vite 기동 완료 → http://localhost:5173"
+until grep -q "Local:" /tmp/vite.log; do sleep 1; done && echo "Vite 기동 완료 → http://localhost:5173"
 ```
 
 브라우저: `http://localhost:5173`
