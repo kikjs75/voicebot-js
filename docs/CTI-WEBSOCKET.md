@@ -181,6 +181,41 @@ ws.send(data.slice(44));
 
 ---
 
+## 구현 시 주의사항
+
+### STT 구독 Disposable 관리
+
+`startNextSttSession()`은 발화마다 새로운 Reactor 구독을 만든다.
+구독에는 `timeout(60s)`가 붙어 있어, 60초 안에 `isFinal=true` 결과가 오지 않으면 에러를 낸다.
+
+**문제**: `sink.tryEmitComplete()`만 호출하면 timeout이 멈추지 않는다.
+
+```
+통화 종료 → sink 완료 신호 → RTZR에 EOS 전송
+                                    ↓
+                        RTZR이 연결 끊는 데 수십 초 걸림
+                                    ↓
+                       그 사이 timeout이 카운트 계속
+                                    ↓
+                         60초 → TimeoutException ERROR
+```
+
+`sink.tryEmitComplete()`는 upstream(오디오 입력)을 끝낼 뿐이다.
+timeout은 downstream(STT 결과)을 기다리는데, RTZR이 응답하지 않으니 카운트가 멈추지 않는다.
+
+**해결**: 세션 종료 시 `Disposable.dispose()`로 Reactor 체인을 직접 취소한다.
+
+```java
+// afterConnectionClosed()
+Disposable d = disposableMap.remove(session.getId());
+if (d != null && !d.isDisposed()) d.dispose();
+```
+
+`dispose()`는 Reactor 체인 전체에 취소 신호를 보내므로 timeout 타이머도 즉시 멈춘다.
+`TimeoutException`이 뜨더라도 정상 종료 상황이므로 ERROR가 아닌 DEBUG로 처리한다.
+
+---
+
 ## 참고 소스
 
 `reference/voicebot-demo/` — 이 설계의 원형이 된 데모 코드.
