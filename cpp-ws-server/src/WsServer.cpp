@@ -5,6 +5,7 @@
 #include <boost/beast/http.hpp>
 #include <nlohmann/json.hpp>
 #include <thread>
+#include <variant>
 
 namespace http = boost::beast::http;
 using json     = nlohmann::json;
@@ -132,17 +133,18 @@ private:
 
                 hist.push_back({"assistant", response});
 
-                self->tts_->synthesize(response, self->callId_);
+                auto audioBytes = self->tts_->synthesize(response, self->callId_);
 
                 if (self->cancelled_) return;
                 net::post(self->strand_,
-                    [self, intent, response, hist]() {
+                    [self, intent, response, hist, audioBytes]() {
                         if (self->cancelled_) return;
                         self->history_ = hist;
                         self->sendJson({{"type", "LLM_RESULT"},
                                         {"intent", intent},
                                         {"response", response}});
                         self->sendJson({{"type", "TTS_TEXT"}, {"text", response}});
+                        self->sendBinary(audioBytes);  // MP3 오디오 전송
                         self->startStt();   // 다음 발화를 위해 RTZR 재연결
                         self->sendJson({{"type", "BOT_READY"}});
                         LOG_INFO("[CTI] 다음 발화 대기 callId={}", self->callId_);
@@ -156,25 +158,50 @@ private:
         }).detach();
     }
 
-    // ── 브라우저로 JSON 전송 ───────────────────────────────
+    // ── 브라우저로 전송 (텍스트 JSON / 바이너리 공용 큐) ──────
+    using WriteItem = std::variant<std::string, std::vector<uint8_t>>;
+
     void sendJson(json j) {
         writeQueue_.push_back(j.dump());
+        if (!writing_) doWrite();
+    }
+
+    void sendBinary(std::vector<uint8_t> data) {
+        writeQueue_.push_back(std::move(data));
         if (!writing_) doWrite();
     }
 
     void doWrite() {
         if (writeQueue_.empty()) { writing_ = false; return; }
         writing_ = true;
-        auto msg = std::make_shared<std::string>(std::move(writeQueue_.front()));
+
+        WriteItem item = std::move(writeQueue_.front());
         writeQueue_.pop_front();
 
-        ws_.text(true);
-        ws_.async_write(net::buffer(*msg),
-            net::bind_executor(strand_,
-                [self = shared_from_this(), msg](beast::error_code ec, size_t) {
-                    if (ec) { self->writing_ = false; return; }
-                    self->doWrite();
-                }));
+        if (std::holds_alternative<std::string>(item)) {
+            auto msg = std::make_shared<std::string>(std::move(std::get<std::string>(item)));
+            ws_.text(true);
+            ws_.async_write(net::buffer(*msg),
+                net::bind_executor(strand_,
+                    [self = shared_from_this(), msg](beast::error_code ec, size_t) {
+                        if (ec) { self->writing_ = false; return; }
+                        self->doWrite();
+                    }));
+        } else {
+            auto buf = std::make_shared<std::vector<uint8_t>>(
+                std::move(std::get<std::vector<uint8_t>>(item)));
+            ws_.binary(true);
+            ws_.async_write(net::buffer(*buf),
+                net::bind_executor(strand_,
+                    [self = shared_from_this(), buf](beast::error_code ec, size_t) {
+                        if (ec) {
+                            LOG_ERROR("[CTI] 오디오 전송 오류 callId={} {}", self->callId_, ec.message());
+                            self->writing_ = false;
+                            return;
+                        }
+                        self->doWrite();
+                    }));
+        }
     }
 
     // ─── 멤버 ──────────────────────────────────────────────
@@ -194,7 +221,7 @@ private:
 
     std::atomic<bool> cancelled_{false};
 
-    std::deque<std::string> writeQueue_;
+    std::deque<WriteItem> writeQueue_;
     bool writing_ = false;
 };
 

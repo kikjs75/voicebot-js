@@ -142,10 +142,11 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
             sendJson(session, Map.of("type", "LLM_RESULT", "intent", intent, "response", llmResponse));
 
             long ttsStart = System.currentTimeMillis();
-            ttsService.synthesize(llmResponse, callId);
+            byte[] audioBytes = ttsService.synthesize(llmResponse, callId);
             log.info("[CTI-TTS-PERF] callId={} elapsed={}ms", callId, System.currentTimeMillis() - ttsStart);
 
             sendJson(session, Map.of("type", "TTS_TEXT", "text", llmResponse));
+            sendBinary(session, audioBytes);
 
             // TTS 완료 후 다음 발화를 위해 새 Sink 생성 + STT 재구독
             startNextSttSession(session, callId, history);
@@ -179,6 +180,12 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
     private void sendJson(WebSocketSession session, Object data) throws Exception {
         if (session.isOpen()) {
             session.sendMessage(new TextMessage(objectMapper.writeValueAsString(data)));
+        }
+    }
+
+    private void sendBinary(WebSocketSession session, byte[] data) throws Exception {
+        if (session.isOpen() && data != null && data.length > 0) {
+            session.sendMessage(new BinaryMessage(data));
         }
     }
 }

@@ -131,12 +131,14 @@ export default function CtiSimulator() {
   const [selectedMicId, setSelectedMicId] = useState("");
 
   const [botState, setBotState] = useState("ready"); // "ready" | "thinking"
+  const [audioPlaying, setAudioPlaying] = useState(false);
 
   const wsRef = useRef(null);
   const audioContextRef = useRef(null);
   const audioFileRef = useRef(null);
   const logEndRef = useRef(null);
-  const botReadyRef = useRef(true); // onaudioprocess에서 참조 (state는 클로저 문제로 사용 불가)
+  const botReadyRef = useRef(true);   // onaudioprocess에서 참조 (state는 클로저 문제로 사용 불가)
+  const audioPlayingRef = useRef(false); // 동일 이유로 ref도 병행 관리
 
   const addLog = useCallback((type, text) => {
     const now = new Date();
@@ -178,6 +180,23 @@ export default function CtiSimulator() {
       };
 
       ws.onmessage = (e) => {
+        // 바이너리: MP3 오디오 재생
+        if (e.data instanceof ArrayBuffer) {
+          const blob = new Blob([e.data], { type: "audio/mpeg" });
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audioPlayingRef.current = true;
+          setAudioPlaying(true);
+          audio.play();
+          audio.onended = () => {
+            audioPlayingRef.current = false;
+            setAudioPlaying(false);
+            URL.revokeObjectURL(url);
+          };
+          return;
+        }
+
+        // 텍스트: JSON 처리
         try {
           const data = JSON.parse(e.data);
           if (data.type === "STT_INTERIM") {
@@ -311,7 +330,7 @@ export default function CtiSimulator() {
           if (Math.abs(float32[i]) > maxVal) maxVal = Math.abs(float32[i]);
         }
         setAudioLevel(Math.round(maxVal * 100));
-        if (wsRef.current?.readyState === WebSocket.OPEN && botReadyRef.current) {
+        if (wsRef.current?.readyState === WebSocket.OPEN && botReadyRef.current && !audioPlayingRef.current) {
           wsRef.current.send(int16.buffer);
         }
       };

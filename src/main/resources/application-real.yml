@@ -25,5 +25,5 @@ voicebot:
       credentials-path: ${GOOGLE_APPLICATION_CREDENTIALS}
       language-code: ko-KR
       voice-name: ko-KR-Neural2-A
-      audio-encoding: LINEAR16
-      sample-rate-hertz: 8000
+      audio-encoding: MP3
+      sample-rate-hertz: 24000
