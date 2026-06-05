@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
-const WS_URL = "ws://localhost:8080/ws/cti";
+const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080/ws/cti";
 
 const CHUNK_INTERVAL_MS = 250;
 const FAKE_DELAY = (ms) => new Promise((r) => setTimeout(r, ms));

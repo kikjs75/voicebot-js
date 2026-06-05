@@ -14,6 +14,8 @@ static std::string envOr(const char* name, const char* def) {
 }
 
 int main() {
+    std::cout << std::unitbuf;
+    std::cerr << std::unitbuf;
     const auto port = static_cast<unsigned short>(
         std::stoi(envOr("PORT", "9090")));
     const std::string springUrl  = envOr("SPRING_URL", "http://localhost:8080");
