@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
+import reactor.core.Disposable;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Component
@@ -35,6 +37,8 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
     private final Map<String, List<LlmService.Message>> historyMap = new ConcurrentHashMap<>();
     // sessionId → callId
     private final Map<String, String> callIdMap = new ConcurrentHashMap<>();
+    // sessionId → 현재 STT 구독 (세션 종료 시 명시적 취소용)
+    private final Map<String, Disposable> disposableMap = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -50,14 +54,15 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
         // history를 클로저로 직접 캡처 — afterConnectionClosed 이후 historyMap 정리와 무관하게 유지
         // publishOn(boundedElastic): LlmService.chat()이 block()을 사용하므로 NIO 스레드에서 실행 금지
         List<LlmService.Message> capturedHistory = historyMap.get(session.getId());
-        sttService.recognize(sink.asFlux(), callId)
+        Disposable d = sttService.recognize(sink.asFlux(), callId)
                 .filter(SttService.SttResult::isFinal)
                 .timeout(Duration.ofSeconds(60))
                 .publishOn(Schedulers.boundedElastic())
                 .subscribe(
                         result -> handleFinalStt(session, callId, result.text(), capturedHistory),
-                        error -> log.error("[CTI] STT 오류 callId={}", callId, error)
+                        error -> handleSttError(callId, error)
                 );
+        disposableMap.put(session.getId(), d);
     }
 
     @Override
@@ -95,6 +100,10 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
         // sink 완료를 먼저 — STT 콜백이 map 제거 전에 callId를 클로저로 참조하므로 순서 무관하나 명시적으로 선행
         Sinks.Many<byte[]> sink = sinkMap.remove(session.getId());
         if (sink != null) sink.tryEmitComplete();
+
+        // STT 구독 명시적 취소 — sink complete 전파가 지연되는 경우 타임아웃 오보 방지
+        Disposable d = disposableMap.remove(session.getId());
+        if (d != null && !d.isDisposed()) d.dispose();
 
         // map 정리는 sink 완료 신호 발행 후
         historyMap.remove(session.getId());
@@ -162,19 +171,32 @@ public class CtiWebSocketHandler extends AbstractWebSocketHandler {
     }
 
     private void startNextSttSession(WebSocketSession session, String callId, List<LlmService.Message> history) {
+        // 이전 구독 취소
+        Disposable old = disposableMap.remove(session.getId());
+        if (old != null && !old.isDisposed()) old.dispose();
+
         Sinks.Many<byte[]> oldSink = sinkMap.get(session.getId());
         if (oldSink != null) oldSink.tryEmitComplete();
 
         Sinks.Many<byte[]> newSink = Sinks.many().unicast().onBackpressureBuffer();
         sinkMap.put(session.getId(), newSink);
-        sttService.recognize(newSink.asFlux(), callId)
+        Disposable d = sttService.recognize(newSink.asFlux(), callId)
                 .filter(SttService.SttResult::isFinal)
                 .timeout(Duration.ofSeconds(60))
                 .publishOn(Schedulers.boundedElastic())
                 .subscribe(
                         result -> handleFinalStt(session, callId, result.text(), history),
-                        error -> log.error("[CTI] STT 오류 callId={}", callId, error)
+                        error -> handleSttError(callId, error)
                 );
+        disposableMap.put(session.getId(), d);
+    }
+
+    private void handleSttError(String callId, Throwable error) {
+        if (error instanceof TimeoutException) {
+            log.debug("[CTI] STT 타임아웃 (정상 종료) callId={}", callId);
+        } else {
+            log.error("[CTI] STT 오류 callId={}", callId, error);
+        }
     }
 
     private void sendJson(WebSocketSession session, Object data) throws Exception {
