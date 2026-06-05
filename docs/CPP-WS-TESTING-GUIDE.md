@@ -148,21 +148,23 @@ RTZR_CLIENT_ID=$RTZR_CLIENT_ID \
 RTZR_CLIENT_SECRET=$RTZR_CLIENT_SECRET \
 ./cpp-ws-server/build/voicebot-cpp
 
-# 백그라운드
+# 백그라운드 (spdlog가 logs/cpp-ws.log 에 자동 저장)
 nohup env \
   PORT=9090 \
   SPRING_URL=http://localhost:8080 \
   RTZR_CLIENT_ID=$RTZR_CLIENT_ID \
   RTZR_CLIENT_SECRET=$RTZR_CLIENT_SECRET \
-  ./cpp-ws-server/build/voicebot-cpp > /tmp/cpp-ws.log 2>&1 &
+  ./cpp-ws-server/build/voicebot-cpp > /dev/null 2>&1 &
 echo "PID: $!"
+until grep -q "서버 시작" logs/cpp-ws.log 2>/dev/null; do sleep 1; done
+echo "C++ 서버 기동 완료"
 ```
 
 기동 확인 로그:
 
 ```
-[STT-RTZR] 토큰 발급 완료 expire_at=...
-[MAIN] 서버 시작 port=9090 spring=http://localhost:8080
+09:33:20.123 [info ] [STT-RTZR] 토큰 발급 완료 expire_at=...
+09:33:20.124 [info ] [MAIN] 서버 시작 port=9090 spring=http://localhost:8080
 ```
 
 기동 확인 명령:
@@ -251,22 +253,24 @@ wscat -c ws://localhost:9090/ws/cti
 
 ### C++ 서버 로그
 
+spdlog가 콘솔과 `logs/cpp-ws.log`에 동시 기록한다. Spring logback과 동일하게 자정마다 `logs/cpp-ws.2026-06-05.log`로 롤링되고 7일치 보관된다.
+
 ```bash
-# 백그라운드 실행 시
-tail -f /tmp/cpp-ws.log
+# 실시간 확인
+tail -f logs/cpp-ws.log
 
 # 파이프라인 흐름만 필터링
-tail -f /tmp/cpp-ws.log | grep -E "\[CTI\]|\[STT-RTZR\]|ERROR"
+tail -f logs/cpp-ws.log | grep -E "\[CTI\]|\[STT-RTZR\]|error"
 ```
 
 정상 흐름 예시:
 
 ```
-[STT-RTZR] 연결됨 callId=CTI-S1
-[CTI] 연결됨 sessionId=S1 callId=CTI-S1
-[CTI] STT 최종 callId=CTI-S1 text="안녕하세요 요금 문의드리려고요"
-[STT-RTZR] 연결됨 callId=CTI-S1   ← 다음 발화 재연결
-[CTI] 다음 발화 대기 callId=CTI-S1
+09:33:20.100 [info ] [STT-RTZR] 연결됨 callId=CTI-S1
+09:33:20.101 [info ] [CTI] 연결됨 sessionId=S1 callId=CTI-S1
+09:33:22.500 [info ] [CTI] STT 최종 callId=CTI-S1 text=안녕하세요 요금 문의드리려고요
+09:33:22.501 [info ] [STT-RTZR] 연결됨 callId=CTI-S1   ← 다음 발화 재연결
+09:33:25.100 [info ] [CTI] 다음 발화 대기 callId=CTI-S1
 ```
 
 ### Spring Boot 로그 (LLM/TTS REST 수신 확인)
