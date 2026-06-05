@@ -213,6 +213,8 @@ export default function CtiSimulator() {
           } else if (data.type === "BOT_THINKING") {
             setBotState("thinking");
             botReadyRef.current = false;
+            setLlmResult(null);
+            setTtsText("");
           } else if (data.type === "BOT_READY") {
             setBotState("ready");
             botReadyRef.current = true;
