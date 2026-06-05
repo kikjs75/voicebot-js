@@ -1,6 +1,6 @@
 #include "RtzrWebSocketSttService.h"
+#include "Logger.h"
 #include <boost/beast/http.hpp>
-#include <iostream>
 #include <nlohmann/json.hpp>
 
 namespace http = boost::beast::http;
@@ -114,7 +114,7 @@ void RtzrWebSocketSttService::doWsHandshake(const std::string& host) {
     ws_->async_handshake(host, path,
         [self = shared_from_this()](beast::error_code ec) {
             if (ec) { self->onError_(ec.message()); return; }
-            std::cout << "[STT-RTZR] 연결됨 callId=" << self->callId_ << "\n";
+            LOG_INFO("[STT-RTZR] 연결됨 callId={}", self->callId_);
             self->connected_ = true;
             self->doRead();
             // Flush any chunks that arrived before connection
@@ -128,8 +128,7 @@ void RtzrWebSocketSttService::doRead() {
         [self = shared_from_this()](beast::error_code ec, size_t) {
             if (ec) {
                 if (ec != ws::error::closed && ec != net::error::eof)
-                    std::cerr << "[STT-RTZR] 읽기 오류 callId=" << self->callId_
-                              << " " << ec.message() << "\n";
+                    LOG_ERROR("[STT-RTZR] 읽기 오류 callId={} {}", self->callId_, ec.message());
                 return;
             }
             auto text = beast::buffers_to_string(self->readBuf_.data());
@@ -150,7 +149,7 @@ void RtzrWebSocketSttService::doWrite() {
                     self->ws_->text(false);
                     self->writing_ = false;
                     if (ec) self->onError_(ec.message());
-                    std::cout << "[STT-RTZR] EOS 전송 callId=" << self->callId_ << "\n";
+                    LOG_INFO("[STT-RTZR] EOS 전송 callId={}", self->callId_);
                 });
         }
         return;
@@ -182,9 +181,7 @@ bool RtzrWebSocketSttService::onMessage(const std::string& text) {
         auto alts = j.value("alternatives", json::array());
         if (!alts.empty()) {
             std::string recognized = alts[0].value("text", std::string());
-            std::cout << "[STT-RTZR] callId=" << callId_
-                      << " final=" << isFinal
-                      << " text=" << recognized << "\n";
+            LOG_INFO("[STT-RTZR] callId={} final={} text={}", callId_, isFinal, recognized);
             onResult_({recognized, isFinal});
 
             if (isFinal) {
@@ -194,7 +191,7 @@ bool RtzrWebSocketSttService::onMessage(const std::string& text) {
             }
         }
     } catch (const std::exception& e) {
-        std::cerr << "[STT-RTZR] 파싱 오류: " << e.what() << "\n";
+        LOG_ERROR("[STT-RTZR] 파싱 오류: {}", e.what());
     }
     return true;
 }

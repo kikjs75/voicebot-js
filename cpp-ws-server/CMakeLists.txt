@@ -9,6 +9,14 @@ find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
+include(FetchContent)
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG        v1.14.1
+)
+FetchContent_MakeAvailable(spdlog)
+
 add_executable(voicebot-cpp
     main.cpp
     src/WsServer.cpp
@@ -26,5 +34,6 @@ target_link_libraries(voicebot-cpp
     OpenSSL::Crypto
     CURL::libcurl
     nlohmann_json::nlohmann_json
+    spdlog::spdlog
     pthread
 )

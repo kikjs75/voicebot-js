@@ -1,7 +1,7 @@
 #include "SpringLlmService.h"
+#include "Logger.h"
 #include <chrono>
 #include <curl/curl.h>
-#include <iostream>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -45,7 +45,7 @@ std::string SpringLlmService::chat(const std::vector<Message>& messages,
 
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - start).count();
-    std::cout << "[LLM-PERF] callId=" << callId << " elapsed=" << elapsed << "ms\n";
+    LOG_INFO("[LLM-PERF] callId={} elapsed={}ms", callId, elapsed);
 
     if (res != CURLE_OK)
         throw std::runtime_error(std::string("LLM HTTP 오류: ") + curl_easy_strerror(res));

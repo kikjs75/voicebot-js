@@ -1,7 +1,7 @@
 #include "SpringTtsService.h"
+#include "Logger.h"
 #include <chrono>
 #include <curl/curl.h>
-#include <iostream>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
@@ -42,7 +42,7 @@ std::vector<uint8_t> SpringTtsService::synthesize(const std::string& text,
 
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - start).count();
-    std::cout << "[TTS-PERF] callId=" << callId << " elapsed=" << elapsed << "ms\n";
+    LOG_INFO("[TTS-PERF] callId={} elapsed={}ms", callId, elapsed);
 
     if (res != CURLE_OK)
         throw std::runtime_error(std::string("TTS HTTP 오류: ") + curl_easy_strerror(res));

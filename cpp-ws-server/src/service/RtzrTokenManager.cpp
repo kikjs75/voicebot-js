@@ -1,7 +1,7 @@
 #include "RtzrTokenManager.h"
+#include "Logger.h"
 #include <chrono>
 #include <curl/curl.h>
-#include <iostream>
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -61,7 +61,7 @@ void RtzrTokenManager::refreshToken() {
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK) {
-        std::cerr << "[STT-RTZR] 토큰 발급 실패: " << curl_easy_strerror(res) << "\n";
+        LOG_ERROR("[STT-RTZR] 토큰 발급 실패: {}", curl_easy_strerror(res));
         return;
     }
 
@@ -70,8 +70,8 @@ void RtzrTokenManager::refreshToken() {
         std::lock_guard<std::mutex> lock(tokenMutex_);
         accessToken_ = j["access_token"].get<std::string>();
         expireAt_    = j["expire_at"].get<long>();
-        std::cout << "[STT-RTZR] 토큰 발급 완료 expire_at=" << expireAt_ << "\n";
+        LOG_INFO("[STT-RTZR] 토큰 발급 완료 expire_at={}", expireAt_);
     } catch (const std::exception& e) {
-        std::cerr << "[STT-RTZR] 토큰 파싱 오류: " << e.what() << "\n";
+        LOG_ERROR("[STT-RTZR] 토큰 파싱 오류: {}", e.what());
     }
 }

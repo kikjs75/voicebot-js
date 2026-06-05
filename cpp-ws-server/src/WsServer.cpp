@@ -1,8 +1,8 @@
+#include "Logger.h"
 #include "WsServer.h"
 #include "service/RtzrWebSocketSttService.h"
 #include <atomic>
 #include <boost/beast/http.hpp>
-#include <iostream>
 #include <nlohmann/json.hpp>
 #include <thread>
 
@@ -39,8 +39,7 @@ private:
         ws_.async_accept(net::bind_executor(strand_,
             [self = shared_from_this()](beast::error_code ec) {
                 if (ec) return;
-                std::cout << "[CTI] 연결됨 sessionId=" << self->sessionId_
-                          << " callId=" << self->callId_ << "\n";
+                LOG_INFO("[CTI] 연결됨 sessionId={} callId={}", self->sessionId_, self->callId_);
                 self->startStt();
                 self->doRead();
             }));
@@ -52,7 +51,7 @@ private:
             net::bind_executor(strand_,
                 [self = shared_from_this()](beast::error_code ec, size_t) {
                     if (ec == ws::error::closed || ec == net::error::eof) {
-                        std::cout << "[CTI] 연결 종료 callId=" << self->callId_ << "\n";
+                        LOG_INFO("[CTI] 연결 종료 callId={}", self->callId_);
                         self->cancelled_ = true;
                         if (self->stt_) self->stt_->complete();
                         return;
@@ -80,7 +79,7 @@ private:
         try {
             auto j    = json::parse(payload);
             auto type = j.value("type", std::string());
-            std::cout << "[CTI] 이벤트 type=" << type << " callId=" << callId_ << "\n";
+            LOG_INFO("[CTI] 이벤트 type={} callId={}", type, callId_);
 
             if (type == "CTI_EVENT" && j.value("event", "") == "CALL_END") {
                 if (stt_) stt_->complete();
@@ -108,7 +107,7 @@ private:
     void handleFinalStt(const std::string& text) {
         if (cancelled_) return;
 
-        std::cout << "[CTI] STT 최종 callId=" << callId_ << " text=" << text << "\n";
+        LOG_INFO("[CTI] STT 최종 callId={} text={}", callId_, text);
         sendJson({{"type", "STT_FINAL"},   {"text", text}});
         sendJson({{"type", "BOT_THINKING"}});
 
@@ -146,7 +145,7 @@ private:
                         self->sendJson({{"type", "TTS_TEXT"}, {"text", response}});
                         self->startStt();   // 다음 발화를 위해 RTZR 재연결
                         self->sendJson({{"type", "BOT_READY"}});
-                        std::cout << "[CTI] 다음 발화 대기 callId=" << self->callId_ << "\n";
+                        LOG_INFO("[CTI] 다음 발화 대기 callId={}", self->callId_);
                     });
             } catch (const std::exception& e) {
                 net::post(self->strand_, [self, msg = std::string(e.what())]() {
