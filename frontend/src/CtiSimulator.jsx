@@ -386,7 +386,8 @@ export default function CtiSimulator() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        height: "100vh",
+        overflow: "hidden",
         background: "#0a0f1a",
         fontFamily: "'JetBrains Mono', 'Courier New', monospace",
         color: "#e2e8f0",
@@ -435,9 +436,9 @@ export default function CtiSimulator() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, flex: 1, minHeight: 0, overflow: "hidden" }}>
         {/* 왼쪽: 컨트롤 패널 */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "hidden" }}>
 
           {/* 전화 정보 */}
           <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, padding: 16 }}>
@@ -621,48 +622,27 @@ export default function CtiSimulator() {
           </button>
 
           {/* 파이프라인 결과 */}
-          <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 11, color: "#475569", letterSpacing: 1 }}>── 파이프라인 결과</div>
-
-            <div>
-              <div style={{ fontSize: 11, color: "#38bdf8", marginBottom: 4 }}>🎤 STT 결과</div>
-              <div style={{
-                background: "#1e293b", borderRadius: 8, padding: "10px 12px",
-                fontSize: 13, color: sttText ? "#e2e8f0" : "#475569", minHeight: 40,
-                border: "1px solid #334155",
-              }}>
-                {sttText || "음성 인식 대기중..."}
-              </div>
+          <div style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: 8, padding: "6px 10px", display: "flex", flexDirection: "column", gap: 3 }}>
+            <div style={{ fontSize: 10, color: "#475569", letterSpacing: 1 }}>── 파이프라인 결과</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 10, color: "#38bdf8", whiteSpace: "nowrap" }}>🎤 STT</span>
+              <span style={{ fontSize: 12, color: sttText ? "#e2e8f0" : "#334155" }}>{sttText || "대기중..."}</span>
             </div>
-
-            <div>
-              <div style={{ fontSize: 11, color: "#a78bfa", marginBottom: 4 }}>🧠 LLM 판단</div>
-              <div style={{
-                background: "#1e293b", borderRadius: 8, padding: "10px 12px",
-                fontSize: 13, color: llmResult ? "#e2e8f0" : "#475569", minHeight: 40,
-                border: "1px solid #334155",
-              }}>
-                {llmResult ? (
-                  <div>
-                    <span style={{ color: "#a78bfa", fontWeight: 700 }}>intent: </span>
-                    <span style={{ color: "#fbbf24" }}>{llmResult.intent}</span>
-                    <br />
-                    <span style={{ color: "#a78bfa", fontWeight: 700 }}>response: </span>
-                    {llmResult.response}
-                  </div>
-                ) : "LLM 분석 대기중..."}
-              </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 10, color: "#a78bfa", whiteSpace: "nowrap" }}>🧠 LLM</span>
+              {llmResult ? (
+                <span style={{ fontSize: 12, color: "#e2e8f0" }}>
+                  <span style={{ color: "#fbbf24" }}>{llmResult.intent}</span>
+                  {"  /  "}
+                  {llmResult.response}
+                </span>
+              ) : (
+                <span style={{ fontSize: 12, color: "#334155" }}>대기중...</span>
+              )}
             </div>
-
-            <div>
-              <div style={{ fontSize: 11, color: "#34d399", marginBottom: 4 }}>🔊 TTS 출력</div>
-              <div style={{
-                background: "#1e293b", borderRadius: 8, padding: "10px 12px",
-                fontSize: 13, color: ttsText ? "#34d399" : "#475569", minHeight: 40,
-                border: "1px solid #334155",
-              }}>
-                {ttsText || "TTS 출력 대기중..."}
-              </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span style={{ fontSize: 10, color: "#34d399", whiteSpace: "nowrap" }}>🔊 TTS</span>
+              <span style={{ fontSize: 12, color: ttsText ? "#34d399" : "#334155" }}>{ttsText || "대기중..."}</span>
             </div>
           </div>
         </div>
@@ -670,7 +650,7 @@ export default function CtiSimulator() {
         {/* 오른쪽: 로그 패널 */}
         <div style={{
           background: "#0f172a", border: "1px solid #1e293b", borderRadius: 12,
-          display: "flex", flexDirection: "column", overflow: "hidden",
+          display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0,
         }}>
           <div style={{
             padding: "12px 16px", borderBottom: "1px solid #1e293b",
@@ -688,7 +668,7 @@ export default function CtiSimulator() {
               clear
             </button>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", maxHeight: 600 }}>
+          <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
             {logs.length === 0 ? (
               <div style={{ padding: 24, textAlign: "center", color: "#334155", fontSize: 13 }}>
                 통화를 시작하면 로그가 표시됩니다
