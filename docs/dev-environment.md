@@ -240,6 +240,101 @@ docker compose --profile full up
 
 ---
 
+## 8. Dockerfile에서 외부 저장소 패키지 설치하는 방법
+
+apt 기본 저장소에 없는 패키지(Docker, GitHub CLI 등)는 **4단계 패턴**으로 설치한다.
+GitHub CLI(`gh`) 설치를 예시로 설명한다.
+
+```dockerfile
+# ① GPG 키 등록
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    | gpg --dearmor -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+# ② apt 저장소 등록
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+       https://cli.github.com/packages stable main" \
+       > /etc/apt/sources.list.d/github-cli.list \
+# ③ 설치
+    && apt-get update && apt-get install -y gh \
+# ④ 캐시 청소
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+```
+
+---
+
+### 단계별 설명
+
+#### ① GPG 키 등록 — "GitHub 도장 원본 보관"
+
+```bash
+curl -fsSL URL | gpg --dearmor -o /usr/share/keyrings/...gpg
+```
+
+| 부분 | 역할 |
+|---|---|
+| `curl -fsSL URL` | GitHub 서버에서 키 파일 다운로드 |
+| `gpg --dearmor` | 텍스트 형식 → 바이너리 형식 변환 (apt가 읽을 수 있는 형식) |
+| `-o /usr/share/keyrings/...` | 변환한 키를 apt 키 보관함에 저장 |
+
+이 키는 나중에 패키지 설치 시 **위변조 검증 기준**으로 쓰인다.
+
+#### ② apt 저장소 등록 — "패키지 받을 주소 + 검증할 키 지정"
+
+```bash
+echo "deb [arch=... signed-by=...키경로] https://cli.github.com/packages stable main" \
+> /etc/apt/sources.list.d/github-cli.list
+```
+
+| 부분 | 역할 |
+|---|---|
+| `deb` | apt 저장소 형식 |
+| `arch=$(dpkg --print-architecture)` | 내 CPU 아키텍처 자동 감지 (amd64, arm64 등) |
+| `signed-by=...` | ①에서 등록한 키로 서명 검증해라 |
+| `https://cli.github.com/packages` | 패키지 받을 URL |
+| `stable main` | 안정화 버전 |
+
+`/etc/apt/sources.list.d/` 는 apt의 **즐겨찾기 쇼핑몰 목록**. 이 파일을 추가하면 `apt-get install gh` 시 해당 URL로 접근한다.
+
+#### ③ 설치 — "패키지 다운로드 + 서명 자동 검증"
+
+```bash
+apt-get update && apt-get install -y gh
+```
+
+`apt-get update`로 저장소 목록을 갱신한 뒤 설치한다. 이때 apt가 자동으로 패키지 서명을 검증한다.
+
+| 상황 | 결과 |
+|---|---|
+| GitHub가 만든 진짜 패키지 | 서명 일치 ✅ → 설치 허용 |
+| 누군가 중간에 변조한 패키지 | 서명 불일치 ❌ → 설치 거부 |
+| 가짜 GitHub 사이트의 패키지 | 서명 없음 ❌ → 설치 거부 |
+
+#### ④ 캐시 청소 — "설치 후 찌꺼기 제거"
+
+```bash
+apt-get clean && rm -rf /var/lib/apt/lists/*
+```
+
+설치 과정에서 생긴 임시 파일을 삭제한다. **Docker 이미지 용량을 줄이기 위해** 설치 직후 반드시 실행한다.
+
+---
+
+### 전체 흐름 요약
+
+```
+① GitHub 도장 원본 저장  (GPG 키 등록)
+        ↓
+② "여기서 받아라 + 이 키로 검증해라" 등록  (저장소 등록)
+        ↓
+③ 패키지 받기 + 도장 자동 검증  (apt-get install)
+        ↓
+④ 찌꺼기 버리기  (캐시 청소)
+```
+
+①②가 사전 준비, ③이 실제 설치+검증, ④가 뒷정리.
+Docker CLI, Node.js 등 apt 기본 저장소에 없는 패키지는 모두 이 패턴을 따른다.
+
+---
+
 ## 7. 포트 구성 참고
 
 | 서비스 | 포트 | 비고 |
