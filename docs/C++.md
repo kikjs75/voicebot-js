@@ -1,3 +1,20 @@
+# 단축키
+## VS Code 기준으로:
+- 뒤로 가기 (Go Back): Ctrl + - (Control + 마이너스)
+- 앞으로 가기 (Go Forward): Ctrl + Shift + -
+
+# 콜백함수에 리턴 타입 명시는 파라미터 옆에 화살표(->) 으로 표시
+```
+[캡처](파라미터) -> 리턴타입 { 본문 }
+
+>> 예시
+[](int a, int b) -> int { return a + b; }   // int 반환
+[](std::string s) -> bool { return s.empty(); }  // bool 반환
+[](std::shared_ptr<Session> s) -> void { ... }   // void (생략 가능)
+
+void 는 생략해도 추론되지만, 나머지는 복잡한 경우 명시해주는 게 좋아요.
+```
+
 # C++ Boost.Asio
 ## 참조
 ### (동영상)(최홍배)C++ Boost.Asio로 만드는 온라인 게임 서버

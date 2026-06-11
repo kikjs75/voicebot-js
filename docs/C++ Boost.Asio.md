@@ -2176,7 +2176,7 @@ class Server {
     
     // work_guard를 멤버로 보관
     boost::asio::executor_work_guard
-        boost::asio::io_context::executor_type> guard_;
+        <boost::asio::io_context::executor_type> guard_;
 
 public:
     Server() : guard_(boost::asio::make_work_guard(io_)) {}
