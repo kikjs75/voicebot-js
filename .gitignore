@@ -1,4 +1,5 @@
 .env
+cpp-ws-server/.env
 target/
 *.class
 *.jar
