@@ -30,6 +30,21 @@ services:
       interval: 10s
       retries: 5
 
+  mongodb:
+    image: mongo:7
+    container_name: voicebot-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+    environment:
+      MONGO_INITDB_DATABASE: voicebot
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      retries: 5
+
   # ── 애플리케이션 ───────────────────────────────────────
   app:
     build:
@@ -56,6 +71,7 @@ services:
 
 volumes:
   mariadb-data:
+  mongodb-data:
 
 networks:
   default:

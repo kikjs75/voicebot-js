@@ -8,6 +8,8 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:redis}
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://mongodb:27017/voicebot}
 
 voicebot:
   stt:

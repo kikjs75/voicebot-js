@@ -33,6 +33,12 @@ voicebot:
   llm:
     url: ${LLM_URL:http://localhost:8082}
     api-key: ${LLM_API_KEY:sim-key}
+    mode: ${VOICEBOT_LLM_MODE:ANTHROPIC}   # ANTHROPIC | INTERNAL | HYBRID
+    hybrid:
+      confidence-threshold: 0.7
+    internal:
+      confidence-threshold: 0.7
+      fallback-response: "죄송합니다. 잠시 후 상담원을 연결해드리겠습니다."
   tts:
     url: ${TTS_URL:http://localhost:8083}
     api-key: ${TTS_API_KEY:sim-key}
