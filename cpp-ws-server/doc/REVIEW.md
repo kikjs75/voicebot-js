@@ -5861,3 +5861,289 @@ void WsServer::doAccept() {
 
 ```
 
+# 아래의 최근 변경 사항인 아래 내용을 좀 더 구체적이고 쉽게 설명해줘.
+```
+>> 최근 변경 사항
+ - Boost::system → Boost::boost 로 변경 (헤더 전용 라이브러리 대응)
+ - CMP0167 policy 추가 (CMake 3.30+ 호환)
+ 
+● ---
+  1. Boost::system → Boost::boost
+
+  배경: Boost는 두 종류의 라이브러리가 섞여 있다
+
+  ┌─────────────────────────┬────────────────────────────┬──────────────────────────────────────────────┐
+  │          종류           │            예시            │                     특징                     │
+  ├─────────────────────────┼────────────────────────────┼──────────────────────────────────────────────┤
+  │ 헤더 전용 (header-only) │ Asio, Beast                │ .h 파일만 include하면 됨. .so/.a 링크 불필요 │
+  ├─────────────────────────┼────────────────────────────┼──────────────────────────────────────────────┤
+  │ 컴파일 필요 (compiled)  │ boost_system, boost_thread │ 별도 .so/.a 파일이 필요                      │
+  └─────────────────────────┴────────────────────────────┴──────────────────────────────────────────────┘
+
+  이 프로젝트에서 실제로 쓰는 Boost 기능(Asio, Beast)은 헤더 전용이라 .so 파일 링크가 필요 없다.
+
+  Boost::system을 쓰면 생기는 문제
+
+  Boost::system은 컴파일된 라이브러리 타겟이다. 이게 없는 환경(헤더만 설치된 경우)에서는:
+  Could not find Boost::system
+  빌드가 실패한다.
+
+  Boost::boost는 뭔가?
+
+  Boost::boost는 "헤더 파일 경로만 제공하는 인터페이스 타겟"이다. 실제 .so 링크 없이 #include <boost/asio.hpp> 같은 include만 해결해 준다.
+
+  Boost::system  →  libboost_system.so 링크 필요  (없으면 빌드 실패)
+  Boost::boost   →  헤더 경로만 추가              (항상 동작)
+
+  ---
+  2. CMP0167 policy
+
+  배경: Boost를 찾는 방법이 두 가지다
+
+  CMake가 find_package(Boost)를 실행할 때, 내부적으로 두 가지 방식 중 하나로 Boost를 탐색한다.
+
+  ┌──────────────────────┬────────────────────────────────────────────────────────┐
+  │         방식         │                          설명                          │
+  ├──────────────────────┼────────────────────────────────────────────────────────┤
+  │ FindBoost (구버전)   │ CMake 내장 스크립트. CMake 버전마다 동작이 조금씩 다름 │
+  ├──────────────────────┼────────────────────────────────────────────────────────┤
+  │ BoostConfig (신버전) │ Boost 설치 시 함께 오는 공식 CMake 설정 파일 사용      │
+  └──────────────────────┴────────────────────────────────────────────────────────┘
+
+  CMake 3.30에서 CMP0167 정책이 도입됐다. 이 정책의 의미:
+
+  NEW = "BoostConfig 방식을 우선 사용해라"
+  OLD = "FindBoost 방식을 그대로 써라" (기본값, deprecated 경고 발생)
+
+  if(POLICY CMP0167)가 필요한 이유
+
+  cmake_policy(SET CMP0167 NEW)를 조건 없이 쓰면, CMake 3.30 미만 버전에서는 이 정책 자체를 모르기 때문에 에러가 난다. if(POLICY CMP0167)로 감싸면 3.30 이상에서만
+  적용, 이하에서는 조용히 무시한다.
+
+  if(POLICY CMP0167)          # CMake 3.30+에서만 이 블록 진입
+    cmake_policy(SET CMP0167 NEW)
+  endif()
+
+  결론: 구버전/신버전 CMake 어디서 빌드해도 경고 없이 동작하게 하는 호환성 코드다.
+
+>> `Boost::boost` 랑 `Boost::system` 차이 예시 코드로 보여줘
+● 프로젝트 구조 예시
+
+  my_app/
+  ├── CMakeLists.txt
+  └── main.cpp
+
+  ---
+  Case 1: Boost::system (컴파일된 라이브러리 필요)
+
+  # CMakeLists.txt
+  find_package(Boost REQUIRED COMPONENTS system)
+
+  target_link_libraries(my_app
+      Boost::system      # libboost_system.so 링크 필요
+  )
+
+  // main.cpp
+  #include <boost/system/error_code.hpp>
+
+  int main() {
+      boost::system::error_code ec;
+      // error_code는 boost_system 라이브러리 내부 구현에 의존
+      // → libboost_system.so 가 없으면 링크 에러
+  }
+
+  Boost::system이 없는 환경에서 빌드하면:
+  -- Could NOT find Boost (missing: system)
+  CMake Error: Could not find Boost::system
+
+  ---
+  Case 2: Boost::boost (헤더만 있으면 됨)
+
+  # CMakeLists.txt
+  find_package(Boost REQUIRED)   # COMPONENTS 없음
+
+  target_link_libraries(my_app
+      Boost::boost       # 헤더 경로만 추가. .so 링크 없음
+  )
+
+  // main.cpp
+  #include <boost/asio.hpp>      // 헤더 전용 → 항상 OK
+  #include <boost/beast.hpp>     // 헤더 전용 → 항상 OK
+
+  int main() {
+      boost::asio::io_context ioc;
+      // Asio는 헤더 안에 구현이 전부 들어있음
+      // → libboost_asio.so 같은 건 존재하지 않음
+  }
+
+  빌드 결과:
+  -- Found Boost: /usr/include (헤더 경로만 설정)
+  -- Build succeeded
+
+  ---
+  왜 헤더 전용이 가능한가?
+
+  // boost/asio/io_context.hpp (실제 Boost 헤더 구조 개념)
+
+  #ifndef BOOST_ASIO_IO_CONTEXT_HPP
+  #define BOOST_ASIO_IO_CONTEXT_HPP
+
+  // 클래스 선언 + 구현이 모두 .hpp 안에 있음
+  class io_context {
+  public:
+      void run() {
+          // 구현 코드가 여기 전부 있음
+          // → 컴파일러가 #include 할 때 직접 컴파일
+      }
+  };
+
+  #endif
+
+  일반 라이브러리는 선언(.h) 과 구현(.cpp → .so) 이 분리되어 있지만,
+  헤더 전용은 구현까지 .hpp 에 다 들어있어서 .so 가 필요 없다.
+
+  ---
+  정리
+
+  내가 쓰는 것          필요한 타겟
+  ─────────────────────────────────────────
+  boost::asio           Boost::boost   (헤더 전용)
+  boost::beast          Boost::boost   (헤더 전용)
+  boost::system         Boost::system  (libboost_system.so 필요)
+  boost::thread         Boost::thread  (libboost_thread.so 필요)
+  boost::filesystem     Boost::filesystem (libboost_filesystem.so 필요)
+
+  이 프로젝트는 Asio/Beast만 쓰므로 Boost::boost 로 충분하다.
+  
+>> 그럼, 기존에는 왜 된거야?
+● 좋은 질문입니다. 두 가지 이유가 겹쳐 있습니다.
+
+  ---
+  이유 1: 그 환경에 libboost_system.so가 설치되어 있었다
+
+  # apt로 Boost 설치하면 컴파일된 라이브러리도 함께 딸려옴
+  apt install libboost-dev         # 헤더만
+  apt install libboost-system-dev  # 헤더 + libboost_system.so ← 이게 있으면 Boost::system 동작
+
+  devcontainer나 이전 빌드 환경에 libboost-system-dev가 설치되어 있었다면 문제없이 빌드된다. 우연히 환경이 맞았던 것.
+
+  ---
+  이유 2: Boost 1.69부터 boost_system이 사실상 헤더 전용으로 바뀌었다
+
+  Boost 1.68 이하:  boost::system::error_code 구현 → libboost_system.so 안에 있음
+  Boost 1.69 이상:  boost::system::error_code 구현 → 헤더로 이동, .so는 빈 껍데기
+
+  1.69 이후엔 libboost_system.so가 있어도 내용이 거의 없다. 그러면서도 CMake 타겟(Boost::system)은 여전히 존재하고 find_package에서 찾아지기 때문에, 빌드는
+  통과된다.
+
+  ---
+  그럼 왜 바꿨나?
+
+  환경이 달라지면 깨진다는 게 문제다.
+
+  환경 A (이전 devcontainer)
+    libboost-system-dev 설치됨 → Boost::system 찾음 → 빌드 성공 ✅
+
+  환경 B (새 머신 / 최소 Docker 이미지)
+    libboost-dev만 설치됨 → Boost::system 못 찾음 → 빌드 실패 ❌
+
+  Boost::boost로 바꾸면 .so 유무와 무관하게 어느 환경에서든 동작한다.
+
+  결론: 기존에 된 건 "운 좋게 환경이 맞았던 것"이고, 지금 수정은 환경에 의존하지 않도록 명시적으로 고친 것이다.
+
+>> Boost::boost 쓰면 pthread는 왜 따로 링크해?
+● 핵심 개념 차이 때문입니다.
+
+  ---
+  Boost::boost = "헤더 경로만 추가"
+
+  target_link_libraries(my_app
+      Boost::boost   # -I/usr/include/boost 만 추가
+                     # 그 이상은 아무것도 안 함
+  )
+
+  Boost::boost는 #include <boost/asio.hpp> 가 찾아지도록 경로만 잡아줄 뿐이다.
+  헤더 안의 코드가 무엇을 호출하는지는 신경 쓰지 않는다.
+
+  ---
+  Asio 헤더가 컴파일되면 pthread 심볼을 호출한다
+
+  // boost/asio/detail/posix_thread.hpp (개념적으로)
+
+  #include <pthread.h>
+
+  class posix_thread {
+      void start() {
+          pthread_create(&thread_, ...);  // ← 이 심볼이 어디 있지?
+      }
+      void join() {
+          pthread_join(thread_, ...);     // ← 이것도
+      }
+  };
+
+  Asio는 헤더 전용이지만, 그 헤더 안에서 OS 레벨 함수인 pthread_create, pthread_join, pthread_mutex_lock 등을 직접 호출한다.
+
+  ---
+  링커 관점에서 보면
+
+  컴파일 단계: main.cpp + Asio 헤더 → main.o
+               main.o 안에 pthread_create 호출 코드가 생성됨
+
+  링크 단계:   main.o → 실행파일
+               "pthread_create 가 어느 .so에 있지?" → libpthread.so
+               pthread 안 링크하면 → undefined reference to `pthread_create` ❌
+
+  ---
+  왜 Boost가 자동으로 pthread를 안 붙여주나?
+
+  Boost 입장에서는 "내가 헤더만 제공하면 됐고, 네가 Asio를 쓸지 말지 모른다"는 것이다.
+
+  Boost.Optional 만 쓰는 프로젝트  → pthread 불필요
+  Boost.Algorithm 만 쓰는 프로젝트 → pthread 불필요
+  Boost.Asio 쓰는 프로젝트         → pthread 필요
+
+  Boost::boost가 pthread를 자동으로 달아버리면, Asio를 안 쓰는 프로젝트까지 불필요하게 pthread를 링크하게 된다. 그래서 사용자가 명시적으로 선언하도록 설계되어
+  있다.
+
+  ---
+  한 줄 요약
+
+  ▎ Boost::boost = Boost 헤더 경로
+  ▎ pthread = Asio 헤더가 내부적으로 호출하는 OS 함수
+  ▎ 둘은 레이어가 달라서 따로 링크해야 한다.
+
+```
+
+# 
+```
+```
+
+# 
+```
+```
+
+# 
+```
+```
+
+# 
+```
+```
+
+# 
+```
+```
+
+# 
+```
+```
+
+# 
+```
+```
+
+# 
+```
+```
+
+
