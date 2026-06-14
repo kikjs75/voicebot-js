@@ -1,5 +1,17 @@
 # E2E 테스트 결과 — sim profile
 
+## 목차
+
+- [사전 준비](#사전-준비)
+- [검증 1 — 기본 콜 흐름](#검증-1--기본-콜-흐름)
+- [검증 2 — PERF 로그](#검증-2--perf-로그)
+- [검증 3 — DB 저장 (CallRecord)](#검증-3--db-저장-callrecord)
+- [검증 4 — Redis 세션](#검증-4--redis-세션)
+- [검증 5 — 에러 케이스 (STT 시뮬레이터 다운)](#검증-5--에러-케이스-stt-시뮬레이터-다운)
+- [최종 결과](#최종-결과)
+
+---
+
 **테스트 일자**: 2026-06-02  
 **Profile**: `sim`  
 **환경**: devcontainer + Docker Compose (voicebot-net)
@@ -7,6 +19,8 @@
 ---
 
 ## 사전 준비
+
+[↑ 목차](#목차)
 
 ### 인프라 + 시뮬레이터 기동
 
@@ -52,6 +66,8 @@ Started VoicebotApplication in 1.672 seconds
 
 ## 검증 1 — 기본 콜 흐름
 
+[↑ 목차](#목차)
+
 ### 명령어
 
 ```bash
@@ -78,6 +94,8 @@ HTTP 200 | response: 124 bytes
 ---
 
 ## 검증 2 — PERF 로그
+
+[↑ 목차](#목차)
 
 ### 명령어
 
@@ -107,6 +125,8 @@ grep -E "PERF" /tmp/spring-boot.log
 
 ## 검증 3 — DB 저장 (CallRecord)
 
+[↑ 목차](#목차)
+
 ### 명령어
 
 ```bash
@@ -133,6 +153,8 @@ docker exec voicebot-mariadb mariadb -u voicebot -pvoicebot1234 voicebot \
 ---
 
 ## 검증 4 — Redis 세션
+
+[↑ 목차](#목차)
 
 ### 명령어
 
@@ -169,6 +191,8 @@ call:session:E2E-TEST-001
 
 ## 검증 5 — 에러 케이스 (STT 시뮬레이터 다운)
 
+[↑ 목차](#목차)
+
 ### 명령어
 
 ```bash
@@ -198,6 +222,8 @@ HTTP 500
 ---
 
 ## 최종 결과
+
+[↑ 목차](#목차)
 
 | 항목 | 결과 |
 |---|---|

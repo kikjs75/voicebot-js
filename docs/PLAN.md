@@ -1,6 +1,22 @@
 # 구현 계획
 
+## 목차
+
+- [현재 상태](#현재-상태)
+- [단계별 계획](#단계별-계획)
+  - [Phase 1 — 외부 API 설정 가이드](#phase-1--외부-api-설정-가이드)
+  - [Phase 2 — sim profile 완성](#phase-2--sim-profile-완성)
+  - [Phase 3 — E2E 동작 확인 (sim)](#phase-3--e2e-동작-확인-sim)
+  - [Phase 4 — real profile 구현](#phase-4--real-profile-구현)
+  - [Phase 5 — E2E 동작 확인 (real)](#phase-5--e2e-동작-확인-real)
+  - [Phase 6 — CTI WebSocket 구현](#phase-6--cti-websocket-구현)
+- [진행 현황](#진행-현황)
+
+---
+
 ## 현재 상태
+
+[↑ 목차](#목차)
 
 ### 완료된 것
 
@@ -33,6 +49,8 @@
 ---
 
 ## 단계별 계획
+
+[↑ 목차](#목차)
 
 ### Phase 1 — 외부 API 설정 가이드
 
@@ -195,6 +213,8 @@ WebSocket으로 음성 청크를 250ms 간격으로 수신하면서 STT → LLM 
 ---
 
 ## 진행 현황
+
+[↑ 목차](#목차)
 
 | Phase | 상태 |
 |---|---|

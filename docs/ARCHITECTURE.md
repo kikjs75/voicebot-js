@@ -1,6 +1,19 @@
 # Architecture
 
+## 목차
+
+- [전체 구성도](#전체-구성도)
+- [엔드포인트](#엔드포인트)
+- [콜 처리 흐름](#콜-처리-흐름)
+  - [HTTP (기존)](#http-기존)
+  - [WebSocket (신규 — /ws/cti)](#websocket-신규--wscti)
+- [Profile 구조](#profile-구조)
+
+---
+
 ## 전체 구성도
+
+[↑ 목차](#목차)
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -31,12 +44,16 @@
 
 ## 엔드포인트
 
+[↑ 목차](#목차)
+
 | 방식 | 엔드포인트 | 구현 위치 |
 |---|---|---|
 | HTTP POST | `/call/incoming` | `CallController` → `CallHandler` |
 | WebSocket | `/ws/cti` | `WebSocketConfig` → `CtiWebSocketHandler` |
 
 ## 콜 처리 흐름
+
+[↑ 목차](#목차)
 
 ### HTTP (기존)
 
@@ -79,6 +96,8 @@ CallHandler.process()
 상세 설계 → @docs/CTI-WEBSOCKET.md
 
 ## Profile 구조
+
+[↑ 목차](#목차)
 
 | Profile | STT | LLM | TTS |
 |---|---|---|---|

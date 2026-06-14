@@ -1,10 +1,22 @@
 # 외부 API 설정 가이드
 
+## 목차
+
+- [1. RTZR STT](#1-rtzr-stt-websocket--기본-real-profile)
+- [2. Google Cloud TTS](#2-google-cloud-tts-rest--real-profile)
+- [3. Anthropic Claude API](#3-anthropic-claude-api-llm-real-profile)
+- [4. 환경변수 전체 매핑](#4-환경변수-전체-매핑)
+- [5. 전체 오디오 파이프라인](#5-전체-오디오-파이프라인)
+
+---
+
 real profile 구현(Phase 4)에 필요한 외부 API 인증 방식 및 요청·응답 스펙 정리.
 
 ---
 
 ## 1. RTZR STT (WebSocket — 기본, `real` profile)
+
+[↑ 목차](#목차)
 
 ### 개요
 
@@ -151,6 +163,8 @@ RTZR_CLIENT_SECRET=
 
 ## 2. Google Cloud TTS (REST — `real` profile)
 
+[↑ 목차](#목차)
+
 ### 개요
 
 PoC 단계에서 비용 $0으로 운영 가능. Neural2 기준 월 100만자 무료.  
@@ -266,6 +280,8 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/gcp-key.json
 
 ## 3. Anthropic Claude API (LLM, `real` profile)
 
+[↑ 목차](#목차)
+
 ### API 키 발급
 
 ```
@@ -313,6 +329,8 @@ ANTHROPIC_API_KEY=
 
 ## 4. 환경변수 전체 매핑
 
+[↑ 목차](#목차)
+
 | 환경변수 | 서비스 | 발급 경로 |
 |---|---|---|
 | `RTZR_CLIENT_ID` | RTZR STT | developers.rtzr.ai 콘솔 |
@@ -323,6 +341,8 @@ ANTHROPIC_API_KEY=
 ---
 
 ## 5. 전체 오디오 파이프라인
+
+[↑ 목차](#목차)
 
 ```
 전화 수신 (G.711, 8kHz)

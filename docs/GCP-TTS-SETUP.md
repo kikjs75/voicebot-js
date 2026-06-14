@@ -1,11 +1,26 @@
 # GCP Cloud Text-to-Speech 설정 가이드
 
+## 목차
+
+- [사전 확인](#사전-확인)
+- [Step 1 — Cloud Text-to-Speech API 활성화](#step-1--cloud-text-to-speech-api-활성화)
+- [Step 2 — 서비스 계정 생성](#step-2--서비스-계정-생성)
+- [Step 3 — JSON 키 발급](#step-3--json-키-발급)
+- [Step 4 — Spring Boot 프로젝트에 적용](#step-4--spring-boot-프로젝트에-적용)
+- [Step 5 — 동작 확인 (curl)](#step-5--동작-확인-curl)
+- [주의사항](#주의사항)
+- [관련 문서](#관련-문서)
+
+---
+
 Google Cloud TTS 서비스 계정 JSON 키 발급 절차.  
 프로젝트: `voicebot-js-dev`
 
 ---
 
 ## 사전 확인
+
+[↑ 목차](#목차)
 
 - GCP 프로젝트: **voicebot-js-dev** (상단 프로젝트 선택기에서 확인)
 - 계정 역할: **소유자(Owner)** 이상 필요
@@ -15,6 +30,8 @@ Google Cloud TTS 서비스 계정 JSON 키 발급 절차.
 ---
 
 ## Step 1 — Cloud Text-to-Speech API 활성화
+
+[↑ 목차](#목차)
 
 ```
 GCP 콘솔 → APIs & Services → 라이브러리
@@ -30,6 +47,8 @@ GCP 콘솔 → APIs & Services → 라이브러리
 ---
 
 ## Step 2 — 서비스 계정 생성
+
+[↑ 목차](#목차)
 
 ```
 GCP 콘솔 → APIs & Services → 사용자 인증 정보
@@ -73,6 +92,8 @@ GCP 콘솔 → IAM 및 관리자 → IAM
 
 ## Step 3 — JSON 키 발급
 
+[↑ 목차](#목차)
+
 ```
 사용자 인증 정보 → 서비스 계정 목록 → tts-service-account 클릭
 → [키] 탭
@@ -89,6 +110,8 @@ GCP 콘솔 → IAM 및 관리자 → IAM
 ---
 
 ## Step 4 — Spring Boot 프로젝트에 적용
+
+[↑ 목차](#목차)
 
 ### 키 파일 배치
 
@@ -115,6 +138,8 @@ SPRING_PROFILES_ACTIVE=real-google ./mvnw spring-boot:run
 
 ## Step 5 — 동작 확인 (curl)
 
+[↑ 목차](#목차)
+
 ```bash
 # Access Token 발급 (gcloud CLI 설치 시)
 TOKEN=$(gcloud auth print-access-token)
@@ -140,6 +165,8 @@ print('저장 완료: /tmp/test.wav')
 
 ## 주의사항
 
+[↑ 목차](#목차)
+
 | 항목 | 내용 |
 |---|---|
 | 인증 방식 | 서비스 계정 OAuth2만 가능 (API 키 방식 미지원) |
@@ -151,6 +178,8 @@ print('저장 완료: /tmp/test.wav')
 ---
 
 ## 관련 문서
+
+[↑ 목차](#목차)
 
 - [GCP TTS REST 레퍼런스](https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize)
 - [지원 음성 목록 (한국어)](https://cloud.google.com/text-to-speech/docs/voices?hl=ko)

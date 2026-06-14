@@ -1,11 +1,31 @@
 # 소스 분석 가이드
 
+## 목차
+
+- [핵심 파일 읽는 순서](#핵심-파일-읽는-순서)
+- [1. HTTP 파이프라인 — CallHandler](#1-http-파이프라인--callhandler)
+- [2. WebSocket 파이프라인 — CtiWebSocketHandler](#2-websocket-파이프라인--ctiwebsockethandler)
+- [3. STT — RtzrWebSocketSttService](#3-stt--rtzrwebsocketsttservice)
+- [4. LLM — ClaudeApiLlmService](#4-llm--claudeapillmservice)
+- [5. TTS — GoogleCloudTtsService](#5-tts--googlecloudttsservice)
+- [6. 설정 파일 구조](#6-설정-파일-구조)
+- [6. 브라우저(React) ↔ Spring 연결 구조](#6-브라우저react--spring-연결-구조)
+- [7. WebSocket 방식 — Raw WS vs STOMP](#7-websocket-방식--raw-ws-vs-stomp)
+- [8. Sinks — 음성 청크 브리지](#8-sinks--음성-청크-브리지)
+- [9. Spring MVC vs Spring WebFlux](#9-spring-mvc-vs-spring-webflux)
+- [10. 주요 로그 태그](#10-주요-로그-태그)
+- [11. 프론트엔드 — CtiSimulator.jsx](#11-프론트엔드--ctisimulatorjsx)
+
+---
+
 현재 소스의 핵심 흐름을 파악하기 위한 문서.
 코드 수정 전 반드시 이 문서를 먼저 읽는다.
 
 ---
 
 ## 핵심 파일 읽는 순서
+
+[↑ 목차](#목차)
 
 ```
 ── HTTP 파이프라인 ──────────────────────────────────────────
@@ -29,6 +49,8 @@
 ---
 
 ## 1. HTTP 파이프라인 — CallHandler
+
+[↑ 목차](#목차)
 
 `POST /call/incoming` 요청을 처리하는 동기 파이프라인.
 
@@ -62,6 +84,8 @@ process(audioData, callId)
 ---
 
 ## 2. WebSocket 파이프라인 — CtiWebSocketHandler
+
+[↑ 목차](#목차)
 
 `/ws/cti` WebSocket 연결을 처리하는 실시간 스트리밍 파이프라인.
 연결 1개 = 전화 통화 1건. 연속 발화를 지원한다.
@@ -170,6 +194,8 @@ LLM 호출 시 이 전체 이력을 매번 전달하므로 Claude가 앞 대화 
 ---
 
 ## 3. STT — RtzrWebSocketSttService
+
+[↑ 목차](#목차)
 
 RTZR WebSocket STT API를 OkHttp로 연결하는 구현체.
 
@@ -446,6 +472,8 @@ CtiWebSocketHandler
 
 ## 4. LLM — ClaudeApiLlmService
 
+[↑ 목차](#목차)
+
 Claude API(`claude-sonnet-4-6`)를 호출하는 구현체.
 
 **요청 구조**
@@ -538,6 +566,8 @@ Map map = objectMapper.readValue(json, Map.class);
 
 ## 5. TTS — GoogleCloudTtsService
 
+[↑ 목차](#목차)
+
 Google Cloud TTS API를 호출하는 구현체.
 
 ### @PostConstruct — 서비스 계정 키 로드
@@ -623,6 +653,8 @@ private synchronized String getAccessToken() {
 
 ## 6. 설정 파일 구조
 
+[↑ 목차](#목차)
+
 ```
 src/main/resources/
 ├── application.yml          ← 공통 설정 (DB, Redis, 로그레벨)
@@ -641,6 +673,8 @@ src/main/resources/
 ---
 
 ## 6. 브라우저(React) ↔ Spring 연결 구조
+
+[↑ 목차](#목차)
 
 ### 브라우저에서 연결 (CtiSimulator.jsx)
 
@@ -755,6 +789,8 @@ new WebSocket(url)
 
 ## 7. WebSocket 방식 — Raw WS vs STOMP
 
+[↑ 목차](#목차)
+
 ### 현재 구현: Raw WebSocket
 
 Spring WebSocket을 일반적으로 사용할 때는 **STOMP 프로토콜**을 얹어 쓴다.
@@ -822,6 +858,8 @@ RTZR    → Spring: 인식 결과 JSON (text)
 ---
 
 ## 8. Sinks — 음성 청크 브리지
+
+[↑ 목차](#목차)
 
 WebSocket 콜백(비동기)과 Reactor 스트림을 연결하는 다리.
 밀어넣는 쪽(Producer)과 꺼내는 쪽(Consumer)을 분리해준다.
@@ -962,6 +1000,8 @@ Sink 없이 직접 연결할 수 없기 때문에 Sink를 중간 브리지로 �
 
 ## 9. Spring MVC vs Spring WebFlux
 
+[↑ 목차](#목차)
+
 현재 프로젝트는 **Spring MVC** 구조다. Spring WebFlux가 아니다.
 
 ```
@@ -1009,6 +1049,8 @@ WebSocket     → Spring WebSocket (서블릿 기반)
 
 ## 10. 주요 로그 태그
 
+[↑ 목차](#목차)
+
 | 태그 | 위치 | 의미 |
 |---|---|---|
 | `[STT-PERF]` | CallHandler | HTTP STT 처리시간 |
@@ -1023,6 +1065,8 @@ WebSocket     → Spring WebSocket (서블릿 기반)
 ---
 
 ## 11. 프론트엔드 — CtiSimulator.jsx
+
+[↑ 목차](#목차)
 
 `frontend/src/CtiSimulator.jsx` — CTI WebSocket 테스트 UI.
 

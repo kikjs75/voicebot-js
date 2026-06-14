@@ -1,10 +1,28 @@
 # 테스트 및 소스 분석 가이드
 
+## 목차
+
+- [1. 환경 시작](#1-환경-시작)
+- [2. 수동 테스트](#2-수동-테스트)
+- [3. 로그 확인](#3-로그-확인)
+- [4. CTI WebSocket 수동 테스트 (담당자)](#4-cti-websocket-수동-테스트-담당자)
+- [5. LLM Mode + MongoDB + 마이크 E2E 테스트 — 구 방식 (docker run 수동 기동)](#5-llm-mode--mongodb--마이크-e2e-테스트--구-방식-docker-run-수동-기동)
+- [6. LLM Mode + MongoDB + 마이크 E2E 테스트 — docker-compose 방식 (권장)](#6-llm-mode--mongodb--마이크-e2e-테스트--docker-compose-방식-권장)
+- [7. 소스 분석](#7-소스-분석)
+- [8. logback으로 로그 파일 자동 저장](#8-logback으로-로그-파일-자동-저장)
+- [9. 자주 확인하는 것](#9-자주-확인하는-것)
+- [10. 환경변수 관리](#10-환경변수-관리)
+- [11. 다음 개선 예정 항목](#11-다음-개선-예정-항목)
+
+---
+
 직접 테스트하고 소스를 분석할 때 참고하는 문서.
 
 ---
 
 ## 1. 환경 시작
+
+[↑ 목차](#목차)
 
 ### vscode 계정 전환
 - vscode 계정 전환해야지 파일 소유권 오염, Git 작업 오염 안 된다.
@@ -124,6 +142,8 @@ echo "Vite 기동 완료 → http://localhost:5173"
 
 ## 2. 수동 테스트
 
+[↑ 목차](#목차)
+
 ### 테스트용 한국어 음성 생성 (공통)
 
 sim/real 모두 동일한 방법으로 테스트 음성을 생성한다.  
@@ -230,6 +250,8 @@ docker exec voicebot-redis redis-cli GET "call:session:TEST-SIM-001"
 
 ## 3. 로그 확인
 
+[↑ 목차](#목차)
+
 ### PERF 로그 실시간 확인
 
 ```bash
@@ -274,6 +296,8 @@ docker exec voicebot-redis redis-cli DEL "call:session:TEST-001"
 ---
 
 ## 4. CTI WebSocket 수동 테스트 (담당자)
+
+[↑ 목차](#목차)
 
 ### 사전 조건 — devcontainer 포트 포워딩
 
@@ -376,7 +400,9 @@ tail -f /workspaces/voicebot-js/app-real.log | grep -E "\[CTI\]|\[CTI-LLM\]|\[CT
 
 ---
 
-## 5. LLM Mode + MongoDB + 마이크 E2E 테스트 (real profile)
+## 5. LLM Mode + MongoDB + 마이크 E2E 테스트 — 구 방식 (docker run 수동 기동)
+
+[↑ 목차](#목차)
 
 LLM 다중 모드(ANTHROPIC / INTERNAL / HYBRID)와 MongoDB Playbook이 정상 동작하는지
 마이크 음성으로 직접 확인하는 절차다.
@@ -399,6 +425,8 @@ devcontainer(localhost)
     └─ voicebot-net 네트워크
            └─ voicebot-mongodb  172.20.0.5:27017  ✅
 ```
+
+> Docker 네트워크 개념 상세 → [MONGODB-DOCKER-NETWORK.md](MONGODB-DOCKER-NETWORK.md)
 
 ---
 
@@ -621,13 +649,218 @@ echo "재기동 완료"
 
 ---
 
-## 6. 소스 분석
+## 6. LLM Mode + MongoDB + 마이크 E2E 테스트 — docker-compose 방식 (권장)
+
+[↑ 목차](#목차)
+
+MongoDB가 `docker-compose.yml`에 포함되어 있으며, Playbook 초기 데이터도
+`mongo-init/01-playbook.js`가 최초 기동 시 자동 투입한다.
+별도 컨테이너 준비와 데이터 투입 단계가 필요 없다.
+
+---
+
+### 배경 — devcontainer에서 MongoDB에 접근하는 방법
+
+→ [MONGODB-DOCKER-NETWORK.md](MONGODB-DOCKER-NETWORK.md)
+
+---
+
+### 1단계: 인프라 기동
+
+```bash
+# real profile 테스트는 sim 없이 기본 compose만으로 충분
+docker compose up mariadb redis mongodb -d
+
+# 상태 확인
+docker ps --format "table {{.Names}}\t{{.Status}}"
+```
+
+정상 기동 시:
+```
+voicebot-mariadb    Up (healthy)
+voicebot-redis      Up (healthy)
+voicebot-mongodb    Up (healthy)
+```
+
+**Playbook 데이터 확인** (최초 기동 시 auto-seed 여부):
+```bash
+docker exec -i voicebot-mongodb mongosh voicebot --quiet \
+  --eval 'print("Playbook: " + db.intent_playbook.countDocuments() + "건")'
+# → Playbook: 10건
+```
+
+> `mongo-init/01-playbook.js`는 볼륨이 비어 있는 최초 기동 시에만 실행된다.
+> 이미 볼륨에 데이터가 있으면 스크립트는 건너뛴다.
+
+**`mongo-init/01-playbook.js`가 자동 실행되는 원리**
+
+`/docker-entrypoint-initdb.d/`는 사용자가 만드는 경로가 아니라
+**MongoDB 공식 Docker 이미지가 미리 약속해둔 경로**다.
+이미지 안의 entrypoint 스크립트가 이 폴더를 스캔해서 `.js` 파일을 자동 실행한다.
+
+`docker-compose.yml`의 아래 설정이 프로젝트 루트의 `mongo-init/` 폴더를 그 경로에 마운트한다.
+
+```
+./mongo-init  :  /docker-entrypoint-initdb.d  :  ro
+     ①                      ②                    ③
+```
+
+- **①** `./mongo-init` — 호스트(내 PC)의 폴더
+- **②** `/docker-entrypoint-initdb.d` — MongoDB가 자동 실행하는 약속된 폴더
+- **③** `ro` — read-only. 컨테이너가 스크립트를 덮어쓰지 못하게 보호
+
+상세 → [MONGODB-DOCKER-NETWORK.md](MONGODB-DOCKER-NETWORK.md)
+
+---
+
+### 2단계: Spring Boot 기동 (real profile + HYBRID 모드)
+
+```bash
+cd /workspaces/voicebot-js
+
+# devcontainer는 voicebot-net에 속하지 않으므로 IP 조회 필요
+MONGO_IP=$(docker inspect voicebot-mongodb --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+echo "MongoDB IP: $MONGO_IP"
+
+set -a && source .env && set +a
+
+MONGODB_URI=mongodb://${MONGO_IP}:27017/voicebot \
+VOICEBOT_LLM_MODE=HYBRID \
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > /tmp/real-app.log 2>&1 &
+
+echo "Spring Boot PID: $!"
+until grep -q "Started VoicebotApplication\|APPLICATION FAILED" /tmp/real-app.log; do sleep 2; done
+grep -E "Started|ERROR|Mongo" /tmp/real-app.log | tail -5
+```
+
+정상 기동 시 로그:
+```
+MongoClient ... created with settings ... hosts=[172.20.0.x:27017]
+Started VoicebotApplication in 2.x seconds
+```
+
+> devcontainer를 voicebot-net에 연결하면 IP 대신 컨테이너명 사용 가능.  
+> `docker network connect voicebot-net <devcontainer명>`  
+> → `MONGODB_URI=mongodb://voicebot-mongodb:27017/voicebot`  
+> 단, devcontainer 재생성 시 재연결 필요.
+
+---
+
+### 3단계: Vite 프론트엔드 기동
+
+```bash
+cd /workspaces/voicebot-js/frontend
+nohup npm run dev > /tmp/vite.log 2>&1 &
+until grep -q "Local:" /tmp/vite.log; do sleep 1; done
+echo "Vite 기동 완료 → http://localhost:5173"
+```
+
+---
+
+### 4단계: 마이크로 테스트
+
+**Host OS 브라우저에서 `http://localhost:5173` 접속**
+
+> devcontainer 포트 포워딩(`"forwardPorts": [8080, 5173]`)이 설정되어 있어야 한다.
+
+1. `📞 전화 걸기` 클릭 → 마이크 권한 **허용**
+2. 아래 발화 목록대로 마이크에 대고 말한다
+3. 화면 우측 로그 패널과 터미널 로그에서 결과를 확인한다
+4. `📵 끊기`로 통화 종료 후 다음 케이스 진행
+
+---
+
+### 테스트 케이스 목록
+
+| # | 발화 예시 | 기대 intent | 기대 action | 예상 응답 경로 |
+|---|---|---|---|---|
+| TC-01 | "안녕하세요" | 인사 | provide_info | Playbook 응답 |
+| TC-02 | "배송이 언제 오나요?" | 배송문의 | provide_info | Playbook 응답 |
+| TC-03 | "반품하고 싶어요" | 반품환불 | provide_info | Playbook 응답 |
+| TC-04 | "주문한 거 어디까지 왔어요?" | 주문조회 | request_order_number | Playbook 응답 |
+| TC-05 | "상담원 연결해주세요" | 상담원연결 | escalate | Playbook 응답 |
+| TC-06 | "아무 말이나 합니다 이상한 말" | 기타 | fallback | Playbook 응답 or Claude fallback |
+
+---
+
+### 5단계: 로그로 결과 확인
+
+```bash
+tail -f /tmp/real-app.log | grep -E "\[LLM-MODE\]|\[INTENT\]|\[PLAYBOOK\]|\[LLM-PERF\]|ERROR"
+```
+
+**TC-02 (배송문의) 정상 출력 예시:**
+```
+[LLM-MODE]  callId=CTI-xxxxxxxx mode=HYBRID
+[INTENT]    callId=CTI-xxxxxxxx intent=배송문의 confidence=0.95 elapsed=1400ms
+[PLAYBOOK]  callId=CTI-xxxxxxxx intent=배송문의 hit=true elapsed=3ms
+[PLAYBOOK]  callId=CTI-xxxxxxxx hit=true action=provide_info → Playbook 응답
+[LLM-PERF]  callId=CTI-xxxxxxxx elapsed=1403ms
+```
+
+**Claude fallback 출력 예시 (confidence 낮을 때):**
+```
+[INTENT]    callId=CTI-xxxxxxxx intent=기타 confidence=0.45 elapsed=1300ms
+[PLAYBOOK]  callId=CTI-xxxxxxxx hit=false confidence=0.45 → Claude fallback
+[LLM-PERF]  callId=CTI-xxxxxxxx elapsed=4200ms
+```
+
+---
+
+### 6단계: LLM 모드 전환 테스트
+
+Spring Boot를 재기동하지 않고 `VOICEBOT_LLM_MODE` 환경변수만 바꿔서 모드별 동작을 비교할 수 있다.
+
+| 모드 | INTENT 로그 | PLAYBOOK 로그 | Claude 호출 |
+|---|---|---|---|
+| ANTHROPIC | 없음 | 없음 | 항상 |
+| INTERNAL | 있음 | 있음 | 없음 (fallback 문자열) |
+| HYBRID | 있음 | 있음 | Playbook miss 시만 |
+
+---
+
+### 데이터 초기화
+
+```bash
+# volume까지 삭제 → 재기동 시 mongo-init 재실행
+docker compose down -v
+docker compose up mariadb redis mongodb -d
+```
+
+> `docker compose down` (without -v): 컨테이너 삭제, 볼륨 유지 → 데이터 그대로  
+> `docker compose down -v`: 볼륨도 삭제 → 재기동 시 `mongo-init/01-playbook.js` 재실행
+
+---
+
+### 빠른 재기동 스크립트
+
+```bash
+kill $(lsof -ti:8080) 2>/dev/null
+
+MONGO_IP=$(docker inspect voicebot-mongodb --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+set -a && source .env && set +a
+
+MONGODB_URI=mongodb://${MONGO_IP}:27017/voicebot \
+VOICEBOT_LLM_MODE=HYBRID \
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > /tmp/real-app.log 2>&1 &
+
+until grep -q "Started VoicebotApplication\|APPLICATION FAILED" /tmp/real-app.log; do sleep 2; done
+echo "재기동 완료"
+```
+
+---
+
+## 7. 소스 분석
+
+[↑ 목차](#목차)
 
 → **[SOURCE-ANALYSIS.md](SOURCE-ANALYSIS.md)** 참조
 
 ---
 
-## 7. logback으로 로그 파일 자동 저장
+## 8. logback으로 로그 파일 자동 저장
+
+[↑ 목차](#목차)
 
 현재는 `nohup ... > app-real.log` 처럼 셸 리다이렉트로 로그를 남기고 있다.
 **logback 설정**을 추가하면 Spring Boot가 자동으로 파일에 로그를 남기므로 리다이렉트 없이 `mvn spring-boot:run`만 실행해도 된다.
@@ -722,7 +955,9 @@ SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
 
 ---
 
-## 8. 자주 확인하는 것
+## 9. 자주 확인하는 것
+
+[↑ 목차](#목차)
 
 ### RTZR 토큰 상태
 
@@ -757,7 +992,9 @@ curl -X POST http://llm-simulator:8082/chat \
 
 ---
 
-## 9. 환경변수 관리
+## 10. 환경변수 관리
+
+[↑ 목차](#목차)
 
 ### 현재 방식 — `set -a && source .env && set +a`
 
@@ -825,7 +1062,9 @@ mvn spring-boot:run     # 그냥 실행 가능
 
 ---
 
-## 10. 다음 개선 예정 항목
+## 11. 다음 개선 예정 항목
+
+[↑ 목차](#목차)
 
 | 항목 | 현재 | 목표 | 방법 |
 |---|---|---|---|

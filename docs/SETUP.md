@@ -1,10 +1,29 @@
 # 개발환경 세팅 가이드
 
+## 목차
+
+- [1. 사전 준비](#1-사전-준비)
+- [2. DevPod으로 컨테이너 시작](#2-devpod으로-컨테이너-시작)
+- [3. IntelliJ 최초 설정](#3-intellij-최초-설정)
+- [4. 환경변수 설정](#4-환경변수-설정)
+- [5. 인프라 + 시뮬레이터 시작](#5-인프라--시뮬레이터-시작)
+- [6. 앱 실행](#6-앱-실행)
+- [실제 외부 서비스로 전환 시](#실제-외부-서비스로-전환-시)
+- [GitHub Push 인증 설정 (devcontainer)](#github-push-인증-설정-devcontainer)
+  - [방법 A: HTTPS + Personal Access Token (간단)](#방법-a-https--personal-access-token-간단)
+  - [방법 B: SSH 키 (권장 — 만료 없음)](#방법-b-ssh-키-권장--만료-없음)
+- [MCP 연결과 GitHub 인증](#mcp-연결과-github-인증)
+- [커밋 메시지 규칙 (Conventional Commits)](#커밋-메시지-규칙-conventional-commits)
+
+---
+
 처음 한 번만 하면 됩니다.
 
 ---
 
 ## 1. 사전 준비
+
+[↑ 목차](#목차)
 
 - DevPod 설치: https://devpod.sh
 - Docker Desktop 실행 중인지 확인
@@ -12,6 +31,8 @@
 ---
 
 ## 2. DevPod으로 컨테이너 시작
+
+[↑ 목차](#목차)
 
 ```bash
 # 프로젝트 루트에서
@@ -23,6 +44,8 @@ IntelliJ가 자동으로 컨테이너에 연결되어 열립니다.
 ---
 
 ## 3. IntelliJ 최초 설정
+
+[↑ 목차](#목차)
 
 컨테이너 안에서 IntelliJ가 열리면 아래 항목을 한 번만 설정합니다.
 
@@ -46,6 +69,8 @@ Maven home: `/usr/share/maven` (컨테이너 안에 설치된 경로)
 
 ## 4. 환경변수 설정
 
+[↑ 목차](#목차)
+
 ```bash
 cp .env.example .env
 ```
@@ -57,6 +82,8 @@ cp .env.example .env
 
 ## 5. 인프라 + 시뮬레이터 시작
 
+[↑ 목차](#목차)
+
 ```bash
 # 인프라(MariaDB, Redis) + 시뮬레이터 4종 한번에 시작
 docker compose -f docker-compose.yml -f docker-compose.sim.yml up -d
@@ -65,6 +92,8 @@ docker compose -f docker-compose.yml -f docker-compose.sim.yml up -d
 ---
 
 ## 6. 앱 실행
+
+[↑ 목차](#목차)
 
 IntelliJ에서 위에서 만든 Spring Boot Run Configuration으로 실행하거나:
 
@@ -78,6 +107,8 @@ IntelliJ에서 위에서 만든 Spring Boot Run Configuration으로 실행하거
 
 ## 실제 외부 서비스로 전환 시
 
+[↑ 목차](#목차)
+
 `.env` 에 API 키 입력 후 profile만 변경합니다.
 
 ```bash
@@ -89,6 +120,8 @@ SPRING_PROFILES_ACTIVE=real ./mvnw spring-boot:run
 ---
 
 ## GitHub Push 인증 설정 (devcontainer)
+
+[↑ 목차](#목차)
 
 `git push`는 GitHub 서버에 코드를 올리는 행위다.
 GitHub은 "이 사람이 진짜 이 저장소 주인인가"를 확인해야 하며, 방법은 두 가지다.
@@ -184,6 +217,8 @@ SSH 키는 `~/.ssh/`에 저장되는데, 컨테이너가 재생성되면 사라�
 
 ## MCP 연결과 GitHub 인증
 
+[↑ 목차](#목차)
+
 MCP(Claude Code 등)에서 GitHub에 접근할 때는 **HTTPS + 토큰만 가능**하다.
 SSH 키는 사용할 수 없다.
 
@@ -200,6 +235,8 @@ MCP나 GitHub API는 웹 요청 방식이라 토큰(PAT)이 유일한 인증 수
 ---
 
 ## 커밋 메시지 규칙 (Conventional Commits)
+
+[↑ 목차](#목차)
 
 이 프로젝트는 커밋 메시지에 **Conventional Commits** 규칙을 사용한다.
 

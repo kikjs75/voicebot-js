@@ -1,6 +1,21 @@
 # 프론트엔드 개발 가이드
 
+## 목차
+
+- [개요](#개요)
+- [디렉토리 구조](#디렉토리-구조)
+- [최초 세팅](#최초-세팅)
+- [실행](#실행)
+- [포트](#포트)
+- [Host OS 접근 — devcontainer 포트 포워딩](#host-os-접근--devcontainer-포트-포워딩)
+- [.gitignore](#gitignore)
+- [WebSocket 구현 설계](#websocket-구현-설계)
+
+---
+
 ## 개요
+
+[↑ 목차](#목차)
 
 `frontend/` 는 CTI WebSocket 테스트를 위한 React 프로젝트다.
 Spring Boot(`src/`)와 독립적으로 실행되며 Maven 빌드 대상이 아니다.
@@ -8,6 +23,8 @@ Spring Boot(`src/`)와 독립적으로 실행되며 Maven 빌드 대상이 아�
 ---
 
 ## 디렉토리 구조
+
+[↑ 목차](#목차)
 
 ```
 voicebot-js/
@@ -25,6 +42,8 @@ voicebot-js/
 ---
 
 ## 최초 세팅
+
+[↑ 목차](#목차)
 
 ```bash
 # 프로젝트 루트에서
@@ -54,6 +73,8 @@ export default function App() {
 
 ## 실행
 
+[↑ 목차](#목차)
+
 ```bash
 cd frontend
 npm run dev
@@ -72,6 +93,8 @@ nohup mvn spring-boot:run -Dspring-boot.run.profiles=sim > app.log 2>&1 & echo "
 
 ## 포트
 
+[↑ 목차](#목차)
+
 | 서비스 | 포트 |
 |---|---|
 | Spring Boot | 8080 |
@@ -81,6 +104,8 @@ nohup mvn spring-boot:run -Dspring-boot.run.profiles=sim > app.log 2>&1 & echo "
 ---
 
 ## Host OS 접근 — devcontainer 포트 포워딩
+
+[↑ 목차](#목차)
 
 devcontainer 안에서 실행 중인 서비스를 Host OS 브라우저에서 접근하려면
 `.devcontainer/devcontainer.json`에 포트 포워딩 설정이 필요하다.
@@ -97,6 +122,8 @@ devcontainer 안에서 실행 중인 서비스를 Host OS 브라우저에서 접
 
 ## .gitignore
 
+[↑ 목차](#목차)
+
 프로젝트 루트 `.gitignore` 에 아래 항목이 있는지 확인한다.
 
 ```
@@ -107,5 +134,7 @@ frontend/dist/
 ---
 
 ## WebSocket 구현 설계
+
+[↑ 목차](#목차)
 
 CTI WebSocket 백엔드 설계 → @docs/CTI-WEBSOCKET.md

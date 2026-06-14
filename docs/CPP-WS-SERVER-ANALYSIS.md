@@ -1,10 +1,31 @@
 # cpp-ws-server 소스 분석
 
+## 목차
+
+- [1. 전체 역할](#1-전체-역할)
+- [2. 파일 구조와 역할](#2-파일-구조와-역할)
+- [3. C++ 문법 / 라이브러리 쉽게 이해하기](#3-c-문법--라이브러리-쉽게-이해하기)
+- [4. main.cpp — 시작점](#4-maincpp--시작점)
+- [5. WsServer — 연결 수락](#5-wsserver--연결-수락)
+- [6. WsSession — 핵심 (연결 1개 = 전화 1건)](#6-wssession--핵심-연결-1개--전화-1건)
+- [7. 핵심 파이프라인: STT → LLM → TTS](#7-핵심-파이프라인-stt--llm--tts)
+- [8. 전송 큐 (writeQueue\_) 동작 원리](#8-전송-큐-writequeue_-동작-원리)
+- [9. RtzrWebSocketSttService — RTZR STT 연결](#9-rtzrwebsocketsttservice--rtzr-stt-연결)
+- [10. RtzrTokenManager — 토큰 자동 갱신](#10-rtzrtokenmanager--토큰-자동-갱신)
+- [11. SpringLlmService / SpringTtsService — Spring 호출](#11-springllmservice--springttsservice--spring-호출)
+- [12. Logger.h — 로그 구조](#12-loggerh--로그-구조)
+- [13. 현재 구조의 특징 및 한계](#13-현재-구조의-특징-및-한계)
+- [14. 핵심 흐름 한눈에 보기](#14-핵심-흐름-한눈에-보기)
+
+---
+
 > C++ STL / Boost를 처음 보는 분을 위해 Java 비유를 최대한 활용해 설명합니다.
 
 ---
 
 ## 1. 전체 역할
+
+[↑ 목차](#목차)
 
 ```
 브라우저 (CtiSimulator.jsx)
@@ -23,6 +44,8 @@ RTZR STT 서버            Spring Boot (:8080)
 ---
 
 ## 2. 파일 구조와 역할
+
+[↑ 목차](#목차)
 
 ```
 cpp-ws-server/
@@ -47,6 +70,8 @@ cpp-ws-server/
 ---
 
 ## 3. C++ 문법 / 라이브러리 쉽게 이해하기
+
+[↑ 목차](#목차)
 
 ### 3-1. `std::shared_ptr<T>` / `std::make_shared<T>()` — 자동 메모리 관리
 
@@ -350,6 +375,8 @@ using WriteItem = std::variant<std::string, std::vector<uint8_t>>;
 
 ## 4. main.cpp — 시작점
 
+[↑ 목차](#목차)
+
 ### 4-1. `#include` — 필요한 파일 가져오기
 
 ```cpp
@@ -525,6 +552,8 @@ public class App {
 
 ## 5. WsServer — 연결 수락
 
+[↑ 목차](#목차)
+
 ```
 WsServer
     │
@@ -544,6 +573,8 @@ WsServer
 ---
 
 ## 6. WsSession — 핵심 (연결 1개 = 전화 1건)
+
+[↑ 목차](#목차)
 
 ### 멤버 변수
 
@@ -589,6 +620,8 @@ doRead()            ← 브라우저 메시지 수신 루프 시작
 ---
 
 ## 7. 핵심 파이프라인: STT → LLM → TTS
+
+[↑ 목차](#목차)
 
 ```cpp
 // STT 최종 결과가 도착하면 호출됨
@@ -641,6 +674,8 @@ void handleFinalStt(const std::string& text) {
 
 ## 8. 전송 큐 (writeQueue_) 동작 원리
 
+[↑ 목차](#목차)
+
 WebSocket은 동시에 여러 메시지를 보낼 수 없다. 하나가 완료되어야 다음을 보낼 수 있다.
 
 ```
@@ -660,6 +695,8 @@ doWrite() → STT_FINAL 전송 완료 → doWrite() → BOT_THINKING → ...
 ---
 
 ## 9. RtzrWebSocketSttService — RTZR STT 연결
+
+[↑ 목차](#목차)
 
 발화가 끝날 때마다 새로 연결하고, 종료 시 닫는 구조.
 
@@ -698,6 +735,8 @@ wss://openapi.vito.ai/v1/transcribe:streaming
 
 ## 10. RtzrTokenManager — 토큰 자동 갱신
 
+[↑ 목차](#목차)
+
 ```
 생성자 → refreshToken()    ← 즉시 토큰 발급
 
@@ -728,6 +767,8 @@ Response: { "access_token": "...", "expire_at": 1234567890 }
 
 ## 11. SpringLlmService / SpringTtsService — Spring 호출
 
+[↑ 목차](#목차)
+
 ```
 POST http://localhost:8080/api/cti/llm/chat
 Content-Type: application/json
@@ -750,6 +791,8 @@ Response: MP3 바이너리
 
 ## 12. Logger.h — 로그 구조
 
+[↑ 목차](#목차)
+
 Spring Logback 스타일을 C++로 재현:
 
 ```
@@ -765,6 +808,8 @@ logs/
 ---
 
 ## 13. 현재 구조의 특징 및 한계
+
+[↑ 목차](#목차)
 
 ### 특징
 
@@ -803,6 +848,8 @@ Spring에서 JSON을 반환하면 C++ 쪽 코드 변경 없이 intent/response�
 ---
 
 ## 14. 핵심 흐름 한눈에 보기
+
+[↑ 목차](#목차)
 
 ```
 브라우저                cpp-ws-server              외부

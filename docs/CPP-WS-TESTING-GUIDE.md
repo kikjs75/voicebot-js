@@ -1,5 +1,19 @@
 # C++ WebSocket 서버 테스트 가이드
 
+## 목차
+
+- [포트 구성](#포트-구성)
+- [1. C++ 서버 빌드](#1-c-서버-빌드)
+- [2. 실행 순서](#2-실행-순서)
+- [3. Java ↔ C++ 전환](#3-java--c-전환)
+- [4. 수동 테스트](#4-수동-테스트)
+- [5. 로그 확인](#5-로그-확인)
+- [6. 서버 종료](#6-서버-종료)
+- [7. 로그 시각 불일치 문제 (타임존)](#7-로그-시각-불일치-문제-타임존)
+- [8. 자주 발생하는 오류](#8-자주-발생하는-오류)
+
+---
+
 C++ WebSocket 서버(`cpp-ws-server/`)를 빌드하고 실행하는 절차.
 Java 버전과 병행 운영하며 포트(8080 vs 9090)로 구분한다.
 
@@ -8,6 +22,8 @@ Java 버전과 병행 운영하며 포트(8080 vs 9090)로 구분한다.
 ---
 
 ## 포트 구성
+
+[↑ 목차](#목차)
 
 | 서비스 | 포트 | 비고 |
 |---|---|---|
@@ -20,6 +36,8 @@ Java 버전과 병행 운영하며 포트(8080 vs 9090)로 구분한다.
 ---
 
 ## 1. C++ 서버 빌드
+
+[↑ 목차](#목차)
 
 ```bash
 cd /workspaces/voicebot-js/cpp-ws-server
@@ -84,6 +102,8 @@ cmake --build /workspaces/voicebot-js/cpp-ws-server/build
 ---
 
 ## 2. 실행 순서
+
+[↑ 목차](#목차)
 
 C++ 서버는 LLM/TTS를 Spring Boot에 위임하므로 **Spring Boot가 먼저 실행 중이어야 한다.**
 
@@ -194,6 +214,8 @@ until grep -q "Local:" /tmp/vite.log; do sleep 1; done && echo "Vite 기동 완�
 
 ## 3. Java ↔ C++ 전환
 
+[↑ 목차](#목차)
+
 코드 변경 없이 Vite 실행 시 환경변수만 바꾼다.
 
 ```bash
@@ -209,6 +231,8 @@ VITE_WS_URL=ws://localhost:9090/ws/cti npm run dev
 ---
 
 ## 4. 수동 테스트
+
+[↑ 목차](#목차)
 
 ### wscat 설치 (최초 1회)
 
@@ -248,6 +272,8 @@ wscat -c ws://localhost:9090/ws/cti
 
 ## 5. 로그 확인
 
+[↑ 목차](#목차)
+
 ### C++ 서버 로그
 
 spdlog가 콘솔과 `logs/cpp-ws.log`에 동시 기록한다. Spring logback과 동일하게 자정마다 `logs/cpp-ws.2026-06-05.log`로 롤링되고 7일치 보관된다.
@@ -285,6 +311,8 @@ tail -f /workspaces/voicebot-js/logs/app.log | grep -E "\[CTI-REST\]|ERROR"
 
 ## 6. 서버 종료
 
+[↑ 목차](#목차)
+
 ```bash
 # C++ 서버
 kill $(lsof -ti:9090)
@@ -299,6 +327,8 @@ kill $(lsof -ti:5173)
 ---
 
 ## 7. 로그 시각 불일치 문제 (타임존)
+
+[↑ 목차](#목차)
 
 ### 증상
 
@@ -378,6 +408,8 @@ tail -3 /workspaces/voicebot-js/logs/app.log
 ---
 
 ## 8. 자주 발생하는 오류
+
+[↑ 목차](#목차)
 
 | 오류 | 원인 | 해결 |
 |---|---|---|

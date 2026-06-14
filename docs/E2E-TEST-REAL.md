@@ -1,5 +1,17 @@
 # E2E 테스트 결과 — real profile
 
+## 목차
+
+- [사전 준비](#사전-준비)
+- [검증 1 — 기본 콜 흐름](#검증-1--기본-콜-흐름)
+- [검증 2 — STT 정확도 및 PERF 로그](#검증-2--stt-정확도-및-perf-로그)
+- [검증 3 — DB 저장](#검증-3--db-저장)
+- [검증 4 — Redis 세션](#검증-4--redis-세션)
+- [검증 5 — 응답 음성 품질](#검증-5--응답-음성-품질)
+- [최종 결과](#최종-결과)
+
+---
+
 **테스트 일자**: 2026-06-02  
 **Profile**: `real`  
 **파이프라인**: RTZR WebSocket STT → Claude LLM → Google Cloud TTS
@@ -7,6 +19,8 @@
 ---
 
 ## 사전 준비
+
+[↑ 목차](#목차)
 
 ### ffmpeg 설치
 
@@ -159,6 +173,8 @@ Started VoicebotApplication in 2.427 seconds
 
 ## 검증 1 — 기본 콜 흐름
 
+[↑ 목차](#목차)
+
 ### 명령어
 
 ```bash
@@ -182,6 +198,8 @@ HTTP 200 | response: 494466 bytes
 ---
 
 ## 검증 2 — STT 정확도 및 PERF 로그
+
+[↑ 목차](#목차)
 
 ### 명령어
 
@@ -216,6 +234,8 @@ grep -E "PERF|STT-RTZR.*final" /tmp/spring-real.log | tail -10
 
 ## 검증 3 — DB 저장
 
+[↑ 목차](#목차)
+
 ### 명령어
 
 ```bash
@@ -240,6 +260,8 @@ docker exec voicebot-mariadb mariadb -u voicebot -pvoicebot1234 voicebot \
 ---
 
 ## 검증 4 — Redis 세션
+
+[↑ 목차](#목차)
 
 ### 명령어
 
@@ -282,6 +304,8 @@ messages: 2개
 
 ## 검증 5 — 응답 음성 품질
 
+[↑ 목차](#목차)
+
 ### 명령어
 
 ```bash
@@ -316,6 +340,8 @@ duration:    30.9s
 ---
 
 ## 최종 결과
+
+[↑ 목차](#목차)
 
 | 항목 | 결과 | 비고 |
 |---|---|---|

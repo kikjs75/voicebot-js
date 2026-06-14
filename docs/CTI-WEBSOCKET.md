@@ -1,6 +1,24 @@
 # CTI WebSocket 구현 설계
 
+## 목차
+
+- [개요](#개요)
+- [엔드포인트 비교](#엔드포인트-비교)
+- [추가 파일](#추가-파일)
+- [구현 방법 검토](#구현-방법-검토)
+- [Sinks 브리지 설계](#sinks-브리지-설계)
+- [WebSocket 세션 생명주기](#websocket-세션-생명주기)
+- [브라우저 → 서버 메시지 형식](#브라우저--서버-메시지-형식)
+- [서버 → 브라우저 메시지 형식](#서버--브라우저-메시지-형식)
+- [pom.xml 의존성 추가](#pomxml-의존성-추가)
+- [구현 시 주의사항](#구현-시-주의사항)
+- [참고 소스](#참고-소스)
+
+---
+
 ## 개요
+
+[↑ 목차](#목차)
 
 기존 HTTP 방식(`POST /call/incoming`)을 유지하면서,
 실시간 음성 스트리밍을 위한 WebSocket 엔드포인트(`/ws/cti`)를 추가한다.
@@ -10,6 +28,8 @@
 
 ## 엔드포인트 비교
 
+[↑ 목차](#목차)
+
 | 방식 | 엔드포인트 | 용도 |
 |---|---|---|
 | HTTP POST | `/call/incoming` | 기존 — 파일/배치 테스트 |
@@ -18,6 +38,8 @@
 ---
 
 ## 추가 파일
+
+[↑ 목차](#목차)
 
 기존 코드는 일절 수정하지 않는다.
 
@@ -32,6 +54,8 @@ src/main/java/com/voicebot/
 ---
 
 ## 구현 방법 검토
+
+[↑ 목차](#목차)
 
 WebSocket 음성 청크를 기존 `SttService.recognize(Flux<byte[]>)`에 연결하는 방법을 검토했다.
 
@@ -51,6 +75,8 @@ WebSocket 음성 청크를 기존 `SttService.recognize(Flux<byte[]>)`에 연결
 ---
 
 ## Sinks 브리지 설계
+
+[↑ 목차](#목차)
 
 `SttService.recognize()`는 `Flux<byte[]>`를 받는다.
 WebSocket은 콜백(`handleBinaryMessage`)으로 청크를 던진다.
@@ -82,6 +108,8 @@ session.sendMessage(JSON)            ← 결과를 브라우저로 역전송
 
 ## WebSocket 세션 생명주기
 
+[↑ 목차](#목차)
+
 | 시점 | 동작 |
 |---|---|
 | `afterConnectionEstablished` | Sink 생성, STT 구독 시작, callId 발급 |
@@ -95,6 +123,8 @@ WebSocket 연결 1개 = 전화 통화 1건.
 ---
 
 ## 브라우저 → 서버 메시지 형식
+
+[↑ 목차](#목차)
 
 ### CTI 이벤트 (JSON)
 ```json
@@ -161,6 +191,8 @@ ws.send(data.slice(44));
 
 ## 서버 → 브라우저 메시지 형식
 
+[↑ 목차](#목차)
+
 ```json
 { "type": "STT_INTERIM", "text": "안녕하..." }
 { "type": "STT_FINAL",   "text": "안녕하세요 문의드릴게요" }
@@ -172,6 +204,8 @@ ws.send(data.slice(44));
 
 ## pom.xml 의존성 추가
 
+[↑ 목차](#목차)
+
 ```xml
 <dependency>
     <groupId>org.springframework.boot</groupId>
@@ -182,6 +216,8 @@ ws.send(data.slice(44));
 ---
 
 ## 구현 시 주의사항
+
+[↑ 목차](#목차)
 
 ### STT 구독 Disposable 관리
 
@@ -217,6 +253,8 @@ if (d != null && !d.isDisposed()) d.dispose();
 ---
 
 ## 참고 소스
+
+[↑ 목차](#목차)
 
 `reference/voicebot-demo/` — 이 설계의 원형이 된 데모 코드.
 
