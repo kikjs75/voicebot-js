@@ -3,9 +3,22 @@
 이 파일은 Claude Code가 이 프로젝트를 이해하고 코드를 작성하기 위한 핵심 컨텍스트입니다.
 새로운 기능 구현 전에 반드시 이 파일을 먼저 읽으세요.
 
+## 목차
+
+- [프로젝트 개요](#프로젝트-개요)
+- [기술 스택](#기술-스택)
+- [핵심 설계 원칙](#핵심-설계-원칙)
+- [패키지 구조](#패키지-구조)
+- [코딩 컨벤션](#코딩-컨벤션)
+- [환경변수 (.env)](#환경변수-env)
+- [자주 하는 작업](#자주-하는-작업)
+- [상세 문서 참조](#상세-문서-참조)
+
 ---
 
 ## 프로젝트 개요
+
+[↑ 목차](#목차)
 
 **음성봇 백엔드 서버** — 콜센터 자동화를 위한 STT/LLM/TTS 파이프라인.
 전화 통화 음성을 받아 STT로 텍스트 변환 → LLM으로 응답 생성 → TTS로 음성 합성하여 반환.
@@ -13,6 +26,8 @@
 ---
 
 ## 기술 스택
+
+[↑ 목차](#목차)
 
 | 항목 | 기술 |
 |---|---|
@@ -31,6 +46,8 @@
 ---
 
 ## 핵심 설계 원칙
+
+[↑ 목차](#목차)
 
 ### 1. 인터페이스 기반 어댑터 패턴
 
@@ -92,6 +109,8 @@ log.info("[STT-PERF] callId={} elapsed={}ms", callId, System.currentTimeMillis()
 
 ## 패키지 구조
 
+[↑ 목차](#목차)
+
 ```
 src/main/java/com/voicebot/
 ├── VoicebotApplication.java
@@ -124,6 +143,8 @@ src/main/java/com/voicebot/
 
 ## 코딩 컨벤션
 
+[↑ 목차](#목차)
+
 - Lombok 사용: `@Slf4j`, `@RequiredArgsConstructor`, `@Builder`
 - 예외: 커스텀 예외 클래스 대신 `RuntimeException` 상속 (`VoicebotException`)
 - 로그: `log.debug("[서비스명] callId={} ...", callId, ...)` 형식 통일
@@ -132,6 +153,8 @@ src/main/java/com/voicebot/
 ---
 
 ## 환경변수 (.env)
+
+[↑ 목차](#목차)
 
 ```
 # 시뮬레이터 URL (sim profile)
@@ -149,6 +172,8 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/gcp-key.json
 ---
 
 ## 자주 하는 작업
+
+[↑ 목차](#목차)
 
 ### 로컬 실행 (시뮬레이터)
 ```bash
@@ -170,6 +195,8 @@ SPRING_PROFILES_ACTIVE=real ./mvnw spring-boot:run
 ```
 
 ## 상세 문서 참조
+[↑ 목차](#목차)
+
 @docs/ARCHITECTURE.md
 @docs/SIMULATOR.md
 @docs/SETUP.md

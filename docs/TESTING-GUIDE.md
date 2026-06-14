@@ -653,6 +653,18 @@ echo "재기동 완료"
 
 [↑ 목차](#목차)
 
+**이번 변경으로 달라진 것 / 달라지지 않은 것**
+
+```
+달라진 것:  MongoDB 컨테이너 기동 방법
+            docker run 수동 기동  →  docker compose up -d 자동 기동
+            Playbook 데이터 투입  →  mongo-init/01-playbook.js 자동 투입
+
+달라지지 않은 것:  Spring Boot 실행 위치
+            devcontainer 안에서 mvn spring-boot:run 으로 실행 (변경 없음)
+            → MongoDB가 voicebot-net 밖이므로 IP 조회는 여전히 필요
+```
+
 MongoDB가 `docker-compose.yml`에 포함되어 있으며, Playbook 초기 데이터도
 `mongo-init/01-playbook.js`가 최초 기동 시 자동 투입한다.
 별도 컨테이너 준비와 데이터 투입 단계가 필요 없다.
