@@ -336,6 +336,40 @@ volumes:
 | 3. DB 조회 | **MongoDB Playbook 조회** 항목 추가 — `mongosh`로 intent_playbook 컬렉션 조회 명령 |
 | 9. 다음 개선 예정 항목 표 | `LLM 모드 전환 (ANTHROPIC → HYBRID)` 항목 추가 — Playbook 구축 후 INTERNAL/HYBRID 전환 절차
 
+
+## 구현 결과 요약
+```
+┌───────────────────────────┬─────────────────────────────────────────────────────────┐
+│           파일            │                          역할                           │
+├───────────────────────────┼─────────────────────────────────────────────────────────┤
+│ LlmModeRouter             │ LlmService 구현체 (real profile). 설정값 보고 전략 선택 │
+├───────────────────────────┼─────────────────────────────────────────────────────────┤
+│ AnthropicStrategy         │ 기존 Claude 직접 호출                                   │
+├───────────────────────────┼─────────────────────────────────────────────────────────┤
+│ InternalStrategy          │ 의도분류 → Playbook → 없으면 fallback 문구              │
+├───────────────────────────┼─────────────────────────────────────────────────────────┤
+│ HybridStrategy            │ 의도분류 → Playbook hit 이면 Playbook, miss 이면 Claude │
+├───────────────────────────┼─────────────────────────────────────────────────────────┤
+│ ClaudeApiLlmService       │ Claude API 클라이언트 (chat + classifyIntent)           │
+├───────────────────────────┼─────────────────────────────────────────────────────────┤
+│ PlaybookService           │ MongoDB 조회                                            │
+├───────────────────────────┼─────────────────────────────────────────────────────────┤
+│ mongo-init/01-playbook.js │ 컨테이너 최초 기동 시 10개 의도 데이터 자동 투입        │
+└───────────────────────────┴─────────────────────────────────────────────────────────┘
+모드 전환 방법
+
+# ANTHROPIC (기본 — 기존 방식 그대로)
+VOICEBOT_LLM_MODE=ANTHROPIC mvn spring-boot:run
+
+# HYBRID (Playbook 있으면 빠른 응답, 없으면 Claude)
+VOICEBOT_LLM_MODE=HYBRID mvn spring-boot:run
+
+# INTERNAL (100% Playbook 전용)
+VOICEBOT_LLM_MODE=INTERNAL mvn spring-boot:run
+
+sim profile은 기존과 동일하게 동작합니다 (MongoDB 완전 배제).
+```
+
 ---
 
 ## 질문

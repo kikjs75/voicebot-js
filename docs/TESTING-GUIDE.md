@@ -376,13 +376,258 @@ tail -f /workspaces/voicebot-js/app-real.log | grep -E "\[CTI\]|\[CTI-LLM\]|\[CT
 
 ---
 
-## 5. 소스 분석
+## 5. LLM Mode + MongoDB + 마이크 E2E 테스트 (real profile)
+
+LLM 다중 모드(ANTHROPIC / INTERNAL / HYBRID)와 MongoDB Playbook이 정상 동작하는지
+마이크 음성으로 직접 확인하는 절차다.
+
+---
+
+### 배경 — devcontainer에서 MongoDB에 접근하는 방법
+
+devcontainer 안에서 `docker run`으로 실행한 컨테이너는 **sibling 컨테이너**다.
+`-p 27017:27017`로 포트를 매핑해도 devcontainer의 `localhost:27017`에는 연결되지 않는다.
+호스트 OS(Mac) 쪽에 매핑되기 때문이다.
+
+해결 방법: MongoDB 컨테이너의 **Docker 네트워크 IP**를 직접 사용한다.
+
+```
+devcontainer(localhost)
+    │
+    ├─ localhost:27017  ← 아무것도 없음 ❌
+    │
+    └─ voicebot-net 네트워크
+           └─ voicebot-mongodb  172.20.0.5:27017  ✅
+```
+
+---
+
+### 1단계: MongoDB 컨테이너 준비
+
+```bash
+# MongoDB 컨테이너가 실행 중인지 확인
+docker ps | grep mongodb
+
+# 없으면 기동 (voicebot-net 네트워크에 연결)
+docker run -d \
+  --name voicebot-mongodb \
+  --network voicebot-net \
+  -p 27017:27017 \
+  mongo:7
+
+# MongoDB IP 확인 (보통 172.20.0.5)
+docker inspect voicebot-mongodb --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}'
+```
+
+---
+
+### 2단계: Playbook 데이터 투입
+
+```bash
+docker exec -i voicebot-mongodb mongosh voicebot << 'EOF'
+db.intent_playbook.drop();
+db.intent_playbook.insertMany([
+  { _id: "인사",      intent: "인사",      response: "안녕하세요! 무엇을 도와드릴까요?",                                              action: "provide_info",        escalate: false, confidenceThreshold: 0.7 },
+  { _id: "배송문의",  intent: "배송문의",  response: "일반 배송은 2~3 영업일, 특급 배송은 1 영업일 이내 도착합니다. 배송 조회는 주문번호를 말씀해주세요.", action: "provide_info",        escalate: false, confidenceThreshold: 0.7 },
+  { _id: "반품환불",  intent: "반품환불",  response: "반품과 환불은 수령 후 7일 이내 신청 가능합니다. 주문번호와 사유를 알려주시면 처리해드리겠습니다.", action: "provide_info",        escalate: false, confidenceThreshold: 0.7 },
+  { _id: "교환",      intent: "교환",      response: "교환은 수령 후 7일 이내, 상품 하자 또는 오배송 시 가능합니다.",                 action: "provide_info",        escalate: false, confidenceThreshold: 0.7 },
+  { _id: "결제",      intent: "결제",      response: "신용카드, 계좌이체, 무통장입금이 가능합니다. 주문번호를 알려주시면 확인해드리겠습니다.", action: "provide_info",        escalate: false, confidenceThreshold: 0.7 },
+  { _id: "회원",      intent: "회원",      response: "회원정보 변경, 탈퇴, 비밀번호 재설정은 마이페이지에서 처리하실 수 있습니다.",    action: "provide_info",        escalate: false, confidenceThreshold: 0.7 },
+  { _id: "주문조회",  intent: "주문조회",  response: "주문번호를 말씀해주시면 주문 상태를 확인해드리겠습니다.",                        action: "request_order_number", escalate: false, confidenceThreshold: 0.7 },
+  { _id: "상담원연결", intent: "상담원연결", response: "상담원에게 연결해드리겠습니다. 잠시만 기다려주세요.",                          action: "escalate",            escalate: true,  confidenceThreshold: 0.7 },
+  { _id: "종료",      intent: "종료",      response: "이용해 주셔서 감사합니다. 좋은 하루 되세요.",                                  action: "end_call",            escalate: false, confidenceThreshold: 0.7 },
+  { _id: "기타",      intent: "기타",      response: "죄송합니다. 잠시 후 상담원을 연결해드리겠습니다.",                              action: "fallback",            escalate: false, confidenceThreshold: 0.7 }
+]);
+print("Playbook 건수: " + db.intent_playbook.countDocuments());
+EOF
+```
+
+데이터 확인:
+```bash
+docker exec -i voicebot-mongodb mongosh voicebot --quiet \
+  --eval 'db.intent_playbook.find({},{intent:1,action:1,_id:0}).forEach(d=>print(JSON.stringify(d)))'
+```
+
+---
+
+### 3단계: Spring Boot 기동 (real profile + HYBRID 모드)
+
+```bash
+cd /workspaces/voicebot-js
+
+# MongoDB IP 변수로 저장 (직접 확인 후 사용)
+MONGO_IP=$(docker inspect voicebot-mongodb --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+echo "MongoDB IP: $MONGO_IP"
+
+# 환경변수 로드 + Spring Boot 기동
+set -a && source .env && set +a
+
+MONGODB_URI=mongodb://${MONGO_IP}:27017/voicebot \
+VOICEBOT_LLM_MODE=HYBRID \
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > /tmp/real-app.log 2>&1 &
+
+echo "Spring Boot PID: $!"
+
+# 기동 완료 대기
+until grep -q "Started VoicebotApplication\|APPLICATION FAILED" /tmp/real-app.log; do sleep 2; done
+grep -E "Started|ERROR|Mongo" /tmp/real-app.log | tail -5
+```
+
+정상 기동 시 로그:
+```
+MongoClient ... created with settings ... hosts=[172.20.0.5:27017]
+Started VoicebotApplication in 2.x seconds
+```
+
+MongoDB 연결 오류 시:
+```
+Exception opening socket ... ConnectException: 연결이 거부됨
+```
+→ `MONGO_IP`를 다시 확인하고 재기동.
+
+---
+
+### 4단계: Vite 프론트엔드 기동
+
+```bash
+cd /workspaces/voicebot-js/frontend
+nohup npm run dev > /tmp/vite.log 2>&1 &
+until grep -q "Local:" /tmp/vite.log; do sleep 1; done
+echo "Vite 기동 완료 → http://localhost:5173"
+```
+
+---
+
+### 5단계: 마이크로 테스트
+
+**Host OS 브라우저에서 `http://localhost:5173` 접속**
+
+> devcontainer 포트 포워딩(`"forwardPorts": [8080, 5173]`)이 설정되어 있어야 한다.
+
+**테스트 순서:**
+
+1. `📞 전화 걸기` 클릭 → 마이크 권한 **허용**
+2. 아래 발화 목록대로 마이크에 대고 말한다
+3. 화면 우측 로그 패널과 터미널 로그에서 결과를 확인한다
+4. `📵 끊기`로 통화 종료 후 다음 케이스 진행
+
+---
+
+### 테스트 케이스 목록
+
+| # | 발화 예시 | 기대 intent | 기대 action | 예상 응답 경로 |
+|---|---|---|---|---|
+| TC-01 | "안녕하세요" | 인사 | provide_info | Playbook 응답 |
+| TC-02 | "배송이 언제 오나요?" | 배송문의 | provide_info | Playbook 응답 |
+| TC-03 | "반품하고 싶어요" | 반품환불 | provide_info | Playbook 응답 |
+| TC-04 | "주문한 거 어디까지 왔어요?" | 주문조회 | request_order_number | Playbook 응답 |
+| TC-05 | "상담원 연결해주세요" | 상담원연결 | escalate | Playbook 응답 |
+| TC-06 | "아무 말이나 합니다 이상한 말" | 기타 | fallback | Playbook 응답 or Claude fallback |
+
+---
+
+### 6단계: 로그로 결과 확인
+
+**터미널 1 — 실시간 파이프라인 모니터링:**
+```bash
+tail -f /tmp/real-app.log | grep -E "\[LLM-MODE\]|\[INTENT\]|\[PLAYBOOK\]|\[LLM-PERF\]|ERROR"
+```
+
+**TC-02 (배송문의) 정상 출력 예시:**
+```
+[LLM-MODE]  callId=CTI-xxxxxxxx mode=HYBRID
+[INTENT]    callId=CTI-xxxxxxxx intent=배송문의 confidence=0.95 elapsed=1400ms
+[PLAYBOOK]  callId=CTI-xxxxxxxx intent=배송문의 hit=true elapsed=3ms
+[PLAYBOOK]  callId=CTI-xxxxxxxx hit=true action=provide_info → Playbook 응답
+[LLM-PERF]  callId=CTI-xxxxxxxx elapsed=1403ms
+```
+
+**TC-05 (상담원연결) 정상 출력 예시:**
+```
+[LLM-MODE]  callId=CTI-xxxxxxxx mode=HYBRID
+[INTENT]    callId=CTI-xxxxxxxx intent=상담원연결 confidence=0.99 elapsed=1200ms
+[PLAYBOOK]  callId=CTI-xxxxxxxx intent=상담원연결 hit=true elapsed=2ms
+[PLAYBOOK]  callId=CTI-xxxxxxxx hit=true action=escalate → Playbook 응답
+```
+
+**Claude fallback 출력 예시 (confidence 낮을 때):**
+```
+[INTENT]    callId=CTI-xxxxxxxx intent=기타 confidence=0.45 elapsed=1300ms
+[PLAYBOOK]  callId=CTI-xxxxxxxx hit=false confidence=0.45 → Claude fallback
+[LLM-PERF]  callId=CTI-xxxxxxxx elapsed=4200ms
+```
+
+---
+
+### 7단계: Playbook 데이터 검증
+
+MongoDB에서 intent별 hit 여부를 직접 확인:
+
+```bash
+# 전체 Playbook 목록
+docker exec -i voicebot-mongodb mongosh voicebot --quiet \
+  --eval 'db.intent_playbook.find({},{intent:1,response:1,action:1,escalate:1,_id:0}).forEach(d=>printjson(d))'
+
+# 특정 intent 조회
+docker exec -i voicebot-mongodb mongosh voicebot --quiet \
+  --eval 'printjson(db.intent_playbook.findOne({intent:"배송문의"}))'
+```
+
+---
+
+### 8단계: LLM 모드 전환 테스트
+
+Spring Boot를 재기동하지 않고 `VOICEBOT_LLM_MODE` 환경변수만 바꿔서 모드별 동작을 비교할 수 있다.
+
+```bash
+# ANTHROPIC 모드 — 항상 Claude가 직접 응답 (Playbook 무시)
+VOICEBOT_LLM_MODE=ANTHROPIC ...
+
+# INTERNAL 모드 — Playbook 응답만 사용, 없으면 fallback 문자열
+VOICEBOT_LLM_MODE=INTERNAL ...
+
+# HYBRID 모드 (기본) — Playbook hit 시 Playbook, 아니면 Claude
+VOICEBOT_LLM_MODE=HYBRID ...
+```
+
+모드별 로그 비교:
+
+| 모드 | INTENT 로그 | PLAYBOOK 로그 | Claude 호출 |
+|---|---|---|---|
+| ANTHROPIC | 없음 | 없음 | 항상 |
+| INTERNAL | 있음 | 있음 | 없음 (fallback 문자열) |
+| HYBRID | 있음 | 있음 | Playbook miss 시만 |
+
+---
+
+### 빠른 재기동 스크립트
+
+코드 수정 후 반복 테스트할 때 사용:
+
+```bash
+# Spring Boot 재기동 (기존 프로세스 종료 후 재시작)
+kill $(lsof -ti:8080) 2>/dev/null
+
+MONGO_IP=$(docker inspect voicebot-mongodb --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+set -a && source .env && set +a
+
+MONGODB_URI=mongodb://${MONGO_IP}:27017/voicebot \
+VOICEBOT_LLM_MODE=HYBRID \
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > /tmp/real-app.log 2>&1 &
+
+until grep -q "Started VoicebotApplication\|APPLICATION FAILED" /tmp/real-app.log; do sleep 2; done
+echo "재기동 완료"
+```
+
+---
+
+## 6. 소스 분석
 
 → **[SOURCE-ANALYSIS.md](SOURCE-ANALYSIS.md)** 참조
 
 ---
 
-## 6. logback으로 로그 파일 자동 저장
+## 7. logback으로 로그 파일 자동 저장
 
 현재는 `nohup ... > app-real.log` 처럼 셸 리다이렉트로 로그를 남기고 있다.
 **logback 설정**을 추가하면 Spring Boot가 자동으로 파일에 로그를 남기므로 리다이렉트 없이 `mvn spring-boot:run`만 실행해도 된다.
@@ -477,7 +722,7 @@ SPRING_PROFILES_ACTIVE=real mvn spring-boot:run
 
 ---
 
-## 7. 자주 확인하는 것
+## 8. 자주 확인하는 것
 
 ### RTZR 토큰 상태
 
@@ -512,7 +757,7 @@ curl -X POST http://llm-simulator:8082/chat \
 
 ---
 
-## 8. 환경변수 관리
+## 9. 환경변수 관리
 
 ### 현재 방식 — `set -a && source .env && set +a`
 
@@ -580,7 +825,7 @@ mvn spring-boot:run     # 그냥 실행 가능
 
 ---
 
-## 9. 다음 개선 예정 항목
+## 10. 다음 개선 예정 항목
 
 | 항목 | 현재 | 목표 | 방법 |
 |---|---|---|---|
