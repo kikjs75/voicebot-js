@@ -129,8 +129,8 @@ npm run dev
 
 # 백그라운드
 cd /workspaces/voicebot-js/frontend
-nohup npm run dev > /tmp/vite.log 2>&1 &
-until grep -q "Local:" /tmp/vite.log; do sleep 1; done
+nohup npm run dev > logs/vite.log 2>&1 &
+until grep -q "Local:" logs/vite.log; do sleep 1; done
 echo "Vite 기동 완료 → http://localhost:5173"
 ```
 
@@ -335,8 +335,8 @@ echo "Spring Boot 기동 완료"
 
 # 4) Vite 프론트엔드 기동
 cd frontend
-nohup npm run dev > /tmp/vite.log 2>&1 &
-until grep -q "Local:" /tmp/vite.log; do sleep 1; done
+nohup npm run dev > logs/vite.log 2>&1 &
+until grep -q "Local:" logs/vite.log; do sleep 1; done
 echo "Vite 기동 완료 → http://localhost:5173"
 ```
 
@@ -492,13 +492,13 @@ set -a && source .env && set +a
 
 MONGODB_URI=mongodb://${MONGO_IP}:27017/voicebot \
 VOICEBOT_LLM_MODE=HYBRID \
-nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > /tmp/real-app.log 2>&1 &
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > logs/real-app.log 2>&1 &
 
 echo "Spring Boot PID: $!"
 
 # 기동 완료 대기
-until grep -q "Started VoicebotApplication\|APPLICATION FAILED" /tmp/real-app.log; do sleep 2; done
-grep -E "Started|ERROR|Mongo" /tmp/real-app.log | tail -5
+until grep -q "Started VoicebotApplication\|APPLICATION FAILED" logs/real-app.log; do sleep 2; done
+grep -E "Started|ERROR|Mongo" logs/real-app.log | tail -5
 ```
 
 정상 기동 시 로그:
@@ -519,8 +519,8 @@ Exception opening socket ... ConnectException: 연결이 거부됨
 
 ```bash
 cd /workspaces/voicebot-js/frontend
-nohup npm run dev > /tmp/vite.log 2>&1 &
-until grep -q "Local:" /tmp/vite.log; do sleep 1; done
+nohup npm run dev > logs/vite.log 2>&1 &
+until grep -q "Local:" logs/vite.log; do sleep 1; done
 echo "Vite 기동 완료 → http://localhost:5173"
 ```
 
@@ -558,7 +558,7 @@ echo "Vite 기동 완료 → http://localhost:5173"
 
 **터미널 1 — 실시간 파이프라인 모니터링:**
 ```bash
-tail -f /tmp/real-app.log | grep -E "\[LLM-MODE\]|\[INTENT\]|\[PLAYBOOK\]|\[LLM-PERF\]|ERROR"
+tail -f logs/real-app.log | grep -E "\[LLM-MODE\]|\[INTENT\]|\[PLAYBOOK\]|\[LLM-PERF\]|ERROR"
 ```
 
 **TC-02 (배송문의) 정상 출력 예시:**
@@ -641,9 +641,9 @@ set -a && source .env && set +a
 
 MONGODB_URI=mongodb://${MONGO_IP}:27017/voicebot \
 VOICEBOT_LLM_MODE=HYBRID \
-nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > /tmp/real-app.log 2>&1 &
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > logs/real-app.log 2>&1 &
 
-until grep -q "Started VoicebotApplication\|APPLICATION FAILED" /tmp/real-app.log; do sleep 2; done
+until grep -q "Started VoicebotApplication\|APPLICATION FAILED" logs/real-app.log; do sleep 2; done
 echo "재기동 완료"
 ```
 
@@ -676,6 +676,18 @@ MongoDB가 `docker-compose.yml`에 포함되어 있으며, Playbook 초기 데�
 → [MONGODB-DOCKER-NETWORK.md](MONGODB-DOCKER-NETWORK.md)
 
 ---
+
+### 재시작 방법
+
+```bash
+pkill -f "spring-boot:run"
+
+MONGODB_URI=mongodb://172.20.0.5:27017/voicebot \
+VOICEBOT_LLM_MODE=HYBRID \
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > logs/real-app.log 2>&1 &
+
+tail -f logs/real-app.log | grep -E "Started|INTENT|PLAYBOOK|ERROR"
+```
 
 ### 1단계: 인프라 기동
 
@@ -738,11 +750,14 @@ set -a && source .env && set +a
 
 MONGODB_URI=mongodb://${MONGO_IP}:27017/voicebot \
 VOICEBOT_LLM_MODE=HYBRID \
-nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > /tmp/real-app.log 2>&1 &
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > logs/real-app.log 2>&1 &
 
 echo "Spring Boot PID: $!"
-until grep -q "Started VoicebotApplication\|APPLICATION FAILED" /tmp/real-app.log; do sleep 2; done
-grep -E "Started|ERROR|Mongo" /tmp/real-app.log | tail -5
+until grep -q "Started VoicebotApplication\|APPLICATION FAILED" logs/real-app.log; do sleep 2; done
+grep -E "Started|ERROR|Mongo" logs/real-app.log | tail -5
+
+# 기존 Spring-Boot 종료
+lsof -ti:8080 | xargs kill -9 
 ```
 
 정상 기동 시 로그:
@@ -762,8 +777,8 @@ Started VoicebotApplication in 2.x seconds
 
 ```bash
 cd /workspaces/voicebot-js/frontend
-nohup npm run dev > /tmp/vite.log 2>&1 &
-until grep -q "Local:" /tmp/vite.log; do sleep 1; done
+nohup npm run dev > logs/vite.log 2>&1 &
+until grep -q "Local:" logs/vite.log; do sleep 1; done
 echo "Vite 기동 완료 → http://localhost:5173"
 ```
 
@@ -798,7 +813,7 @@ echo "Vite 기동 완료 → http://localhost:5173"
 ### 5단계: 로그로 결과 확인
 
 ```bash
-tail -f /tmp/real-app.log | grep -E "\[LLM-MODE\]|\[INTENT\]|\[PLAYBOOK\]|\[LLM-PERF\]|ERROR"
+tail -f logs/real-app.log | grep -E "\[LLM-MODE\]|\[INTENT\]|\[PLAYBOOK\]|\[LLM-PERF\]|ERROR"
 ```
 
 **TC-02 (배송문의) 정상 출력 예시:**
@@ -854,9 +869,9 @@ set -a && source .env && set +a
 
 MONGODB_URI=mongodb://${MONGO_IP}:27017/voicebot \
 VOICEBOT_LLM_MODE=HYBRID \
-nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > /tmp/real-app.log 2>&1 &
+nohup mvn spring-boot:run -Dspring-boot.run.profiles=real > logs/real-app.log 2>&1 &
 
-until grep -q "Started VoicebotApplication\|APPLICATION FAILED" /tmp/real-app.log; do sleep 2; done
+until grep -q "Started VoicebotApplication\|APPLICATION FAILED" logs/real-app.log; do sleep 2; done
 echo "재기동 완료"
 ```
 

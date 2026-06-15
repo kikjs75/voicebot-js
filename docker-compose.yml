@@ -37,7 +37,8 @@ services:
       - "27017:27017"
     volumes:
       - mongodb-data:/data/db
-      - ./mongo-init:/docker-entrypoint-initdb.d:ro
+      # devcontainer(Docker-out-of-Docker) 환경에서는 호스트 경로 마운트 불가
+      # - ./mongo-init:/docker-entrypoint-initdb.d:ro
     environment:
       MONGO_INITDB_DATABASE: voicebot
     healthcheck:

@@ -71,11 +71,17 @@ public class ClaudeApiLlmService {
 
         List<?> content = (List<?>) response.get("content");
         Map<?, ?> first = (Map<?, ?>) content.get(0);
-        return (String) first.get("text");
+        return stripCodeBlock((String) first.get("text"));
+    }
+
+    private String stripCodeBlock(String text) {
+        if (text == null) return "";
+        return text.replaceAll("(?s)```[a-z]*\\s*", "").replaceAll("(?s)```\\s*", "").trim();
     }
 
     public IntentResult classifyIntent(String userText, String callId) {
         long start = System.currentTimeMillis();
+        String rawText = null;
         try {
             Map<?, ?> response = webClient.post()
                     .uri("https://api.anthropic.com/v1/messages")
@@ -93,7 +99,8 @@ public class ClaudeApiLlmService {
 
             List<?> content = (List<?>) response.get("content");
             Map<?, ?> first = (Map<?, ?>) content.get(0);
-            String text = (String) first.get("text");
+            rawText = (String) first.get("text");
+            String text = stripCodeBlock(rawText);
 
             JsonNode node = objectMapper.readTree(text);
             String intent = node.path("intent").asText("기타");
@@ -104,7 +111,7 @@ public class ClaudeApiLlmService {
 
             return new IntentResult(intent, confidence);
         } catch (Exception e) {
-            log.warn("[INTENT] callId={} 분류 실패 → 기타 반환: {}", callId, e.getMessage());
+            log.warn("[INTENT] callId={} 분류 실패 → 기타 반환: {} | raw={}", callId, e.getMessage(), rawText);
             return new IntentResult("기타", 0.0);
         }
     }
