@@ -706,6 +706,24 @@ voicebot-redis      Up (healthy)
 voicebot-mongodb    Up (healthy)
 ```
 
+#### docker cp 후 초기화 스크립트 실행
+
+`/docker-entrypoint-initdb.d/` 스크립트는 **최초 컨테이너 생성 시에만 자동 실행**된다.
+이미 실행 중인 컨테이너에 파일을 복사해도 자동으로 실행되지 않으므로, `mongosh`로 직접 실행한다.
+
+```bash
+# 1. 파일 복사 (devcontainer 안에서 실행 가능)
+docker cp ./mongo-init/. voicebot-mongodb:/docker-entrypoint-initdb.d/
+
+# 2. 스크립트 직접 실행
+docker exec -it voicebot-mongodb mongosh --file /docker-entrypoint-initdb.d/01-playbook.js
+```
+
+성공 시 출력:
+```
+Playbook 초기 데이터 투입 완료: 10건
+```
+
 **Playbook 데이터 확인** (최초 기동 시 auto-seed 여부):
 ```bash
 docker exec -i voicebot-mongodb mongosh voicebot --quiet \
