@@ -21,6 +21,7 @@ env/
 
 # 로그 파일
 *.log
+nohup.out
 logs/
 
 # Claude Code 설정
