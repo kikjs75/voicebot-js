@@ -8,12 +8,41 @@
 
 - [한 줄 요약](#한-줄-요약)
 - [파일 구조](#파일-구조)
+  - [각 파일 역할](#각-파일-역할)
 - [모드 3가지 비교](#모드-3가지-비교)
+  - [ANTHROPIC 모드](#anthropic-모드)
+  - [INTERNAL 모드](#internal-모드)
+  - [HYBRID 모드](#hybrid-모드)
 - [어떻게 모드를 바꾸는가](#어떻게-모드를-바꾸는가)
 - [클래스 관계도](#클래스-관계도)
 - [HYBRID 모드 상세 흐름](#hybrid-모드-상세-흐름)
+  - [1단계: 마지막 사용자 발화 추출](#1단계-마지막-사용자-발화-추출)
+  - [2단계: Claude에게 의도 분류 요청](#2단계-claude에게-의도-분류-요청)
+  - [3단계: MongoDB에서 대본 조회](#3단계-mongodb에서-대본-조회)
+  - [4단계: 분기](#4단계-분기)
+  - [분기 시나리오 예시](#분기-시나리오-예시)
 - [도메인 구조](#도메인-구조)
+  - [IntentResult — Claude 분류 결과](#intentresult--claude-분류-결과)
+  - [IntentPlaybook — MongoDB 대본 문서](#intentplaybook--mongodb-대본-문서)
 - [실제 로그로 보는 흐름](#실제-로그로-보는-흐름)
+  - [성공 케이스 (Playbook hit)](#성공-케이스-playbook-hit)
+  - [Claude fallback 케이스 (신뢰도 부족)](#claude-fallback-케이스-신뢰도-부족)
+  - [분류 실패 케이스 (Claude 백틱 응답)](#분류-실패-케이스-claude-백틱-응답)
+- [분석 내용](#분석-내용)
+  - [LlmService.java](#llmservicejava-설명해줘)
+  - [LlmModeRouter](#llmmoderouter-설명해줘-특히-llmstrategy-strategy-switch-modetouppercase-이-부분-이해-안-가)
+  - [ClaudeApiLlmService.java](#claudeapillmservicejava-설명해줘)
+  - [PlaybookService.java](#playbookservicejava-설명해줘)
+  - [HybridStrategy.java](#hybridstrategyjava-설명해줘)
+  - [AnthropicStrategy.java](#anthropicstrategyjava-설명해줘)
+  - [InternalStrategy.java](#internalstrategyjava-설명해줘)
+  - [CtiRestController](#ctirestcontroller-설명해줘)
+  - [CtiWebSocketHandler](#ctiwebsockethandler-설명해줘--함수별로-설명-필요)
+  - [RtzrWebSocketSttService.java](#rtzrwebsocketsttservicejava-아주-쉽게-설명해줘)
+  - [GoogleCloudTtsService](#googlecloudttsservice-클래스-쉽게-설명해줘)
+  - [CallController, CallHandler](#http-파이프라인-본체--callcontroller-callhandler-쉽게-설명해줘)
+  - [Config 3종 (RedisConfig, WebClientConfig, WebSocketConfig)](#config-3종--redisconfig-webclientconfig-websocketconfig-쉽게-설명해줘)
+  - [Docker / devcontainer 운영](#docker-에-대해서-알고-싶어-image--container-관계-주요-명령어와-의미-존재-이유-등-근본적인-개념부터-설명-그리고-container-생성--사용-후-삭제가-낫은지-너무-많아져서-지저분한-것-같기도-하고)
 
 ---
 
@@ -423,10 +452,6 @@ public class IntentPlaybook {
 
 ## 분석 내용
 [↑ 목차](#목차)
-
-### 
-```
-```
 
 ### LlmService.java 설명해줘.
 ```
@@ -7304,21 +7329,5 @@ vscode ➜ /workspaces/voicebot-js (main) $
   ---
   그리고 git status 말씀하신 건 — push가 이미 완료됐습니다. 제가 push하는 사이에 status를 보신 거라 "1개 커밋 앞에" 로 보인 것이고, 지금은 origin/main과 동기화된 상태입니다.
 
-```
-
-### 
-```
-```
-
-### 
-```
-```
-
-### 
-```
-```
-
-### 
-```
 ```
 
