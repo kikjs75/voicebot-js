@@ -81,6 +81,7 @@ service/llm/
 
 ### 각 파일 역할
 
+[↑ 목차](#목차)
 **`LlmService.java`** — 인터페이스 (계약서)
 ```java
 public interface LlmService {
@@ -139,6 +140,7 @@ public Optional<IntentPlaybook> findByIntent(String intent) {
 
 ### ANTHROPIC 모드
 
+[↑ 목차](#목차)
 ```
 사용자: "배송비가 얼마예요?"
     │
@@ -158,6 +160,7 @@ Claude가 알아서 답변
 
 ### INTERNAL 모드
 
+[↑ 목차](#목차)
 ```
 사용자: "배송비가 얼마예요?"
     │
@@ -180,6 +183,7 @@ findByIntent("배송문의") → "배송 관련 안내드립니다. 일반 배�
 
 ### HYBRID 모드
 
+[↑ 목차](#목차)
 ```
 사용자: "배송비가 얼마예요?"
     │
@@ -286,6 +290,7 @@ CtiWebSocketHandler / CallHandler
 
 ### 1단계: 마지막 사용자 발화 추출
 
+[↑ 목차](#목차)
 ```java
 String userText = extractLastUserText(messages);
 // messages 중 role="user"인 가장 마지막 메시지를 꺼냄
@@ -294,6 +299,7 @@ String userText = extractLastUserText(messages);
 
 ### 2단계: Claude에게 의도 분류 요청
 
+[↑ 목차](#목차)
 ```java
 IntentResult intentResult = claudeApiLlmService.classifyIntent(userText, callId);
 ```
@@ -318,6 +324,7 @@ Claude 응답:
 
 ### 3단계: MongoDB에서 대본 조회
 
+[↑ 목차](#목차)
 ```java
 Optional<IntentPlaybook> playbookOpt = playbookService.findByIntent("배송문의");
 ```
@@ -326,6 +333,7 @@ MongoDB `intent_playbook` 컬렉션에서 intent가 "배송문의"인 문서를 
 
 ### 4단계: 분기
 
+[↑ 목차](#목차)
 ```java
 if (playbookOpt.isPresent() && intentResult.confidence() >= 0.7) {
     // → 대본 응답
@@ -349,6 +357,7 @@ return claudeApiLlmService.chat(messages, callId);
 
 ### 분기 시나리오 예시
 
+[↑ 목차](#목차)
 | 사용자 발화 | intent | confidence | 대본 | 결과 |
 |---|---|---|---|---|
 | "배송비 얼마예요?" | 배송문의 | 0.95 | ✅ 있음 | 대본 응답 |
@@ -364,6 +373,7 @@ return claudeApiLlmService.chat(messages, callId);
 
 ### IntentResult — Claude 분류 결과
 
+[↑ 목차](#목차)
 ```java
 public record IntentResult(String intent, double confidence) {}
 ```
@@ -376,6 +386,7 @@ public record IntentResult(String intent, double confidence) {}
 
 ### IntentPlaybook — MongoDB 대본 문서
 
+[↑ 목차](#목차)
 ```java
 @Document(collection = "intent_playbook")
 public class IntentPlaybook {
@@ -412,6 +423,7 @@ public class IntentPlaybook {
 
 ### 성공 케이스 (Playbook hit)
 
+[↑ 목차](#목차)
 ```
 [LLM-MODE] callId=CPP mode=HYBRID
 [INTENT]   callId=CPP intent=배송문의 confidence=0.95 elapsed=1581ms
@@ -425,6 +437,7 @@ public class IntentPlaybook {
 
 ### Claude fallback 케이스 (신뢰도 부족)
 
+[↑ 목차](#목차)
 ```
 [LLM-MODE] callId=CPP mode=HYBRID
 [INTENT]   callId=CPP intent=기타 confidence=0.45 elapsed=1316ms
@@ -439,6 +452,7 @@ public class IntentPlaybook {
 
 ### 분류 실패 케이스 (Claude 백틱 응답)
 
+[↑ 목차](#목차)
 ```
 [INTENT] callId=CPP 분류 실패 → 기타 반환:
          Unexpected character ('`') | raw=```json\n{"intent":"기타"...}\n```
@@ -454,6 +468,8 @@ public class IntentPlaybook {
 [↑ 목차](#목차)
 
 ### LlmService.java 설명해줘.
+
+[↑ 목차](#목차)
 ```
 답변 : ● 코드가 짧지만 역할이 중요합니다.
 
@@ -562,6 +578,8 @@ public class IntentPlaybook {
 ```
 
 ### CallHandler, CtiWebSocketHandler 역할을 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● 두 클래스의 차이
 
@@ -696,6 +714,8 @@ public class IntentPlaybook {
 ```
 
 ### LlmModeRouter 설명해줘. 특히, LlmStrategy strategy = switch (mode.toUpperCase()) {... 이 부분 이해 안 가.
+
+[↑ 목차](#목차)
 ```
 ● LlmModeRouter 전체 구조
 
@@ -769,6 +789,8 @@ public class IntentPlaybook {
 ```
 
 ### 아래의 참조소스 멤버변수는 클래스 생성 시 인스턴스가 자동으로 생성되는건지? 그래서 chat() 내의 swtich 문에서 사용할 수 있는건지?
+
+[↑ 목차](#목차)
 ```
 >> 참조 소소
 private final AnthropicStrategy anthropicStrategy;
@@ -895,6 +917,8 @@ private final HybridStrategy hybridStrategy;
 ```
 
 ### ClaudeApiLlmService.java 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● 전체 구조
 
@@ -1071,6 +1095,8 @@ private final HybridStrategy hybridStrategy;
 ```
 
 ###  PlaybookService.java 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● 코드가 아주 짧습니다. 역할도 단순합니다.
 
@@ -1296,6 +1322,8 @@ private final HybridStrategy hybridStrategy;
 ```
 
 ### HybridStrategy.java 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● 한 줄 요약
 
@@ -1519,6 +1547,8 @@ private final HybridStrategy hybridStrategy;
 ```
 
 ### AnthropicStrategy.java 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● AnthropicStrategy — 가장 단순
 
@@ -1539,6 +1569,8 @@ private final HybridStrategy hybridStrategy;
 ```
 
 ### InternalStrategy.java 설명해줘.
+
+[↑ 목차](#목차)
 ```
   ---
   InternalStrategy — HYBRID와 거의 같지만 fallback이 다름
@@ -1601,6 +1633,8 @@ private final HybridStrategy hybridStrategy;
 ```
 
 ### 참조 소스1 설명해줘. 그리고 왜 참조 소스2 되는지?
+
+[↑ 목차](#목차)
 ```
 >> 참조 소스1
 public interface CallRecordRepository extends JpaRepository<CallRecord, Long> {
@@ -2052,6 +2086,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiRestController 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● CtiRestController 설명
 
@@ -2144,6 +2180,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler 설명해줘. => 함수별로 설명 필요.
+
+[↑ 목차](#목차)
 ```
 ● CtiWebSocketHandler 설명
 
@@ -2262,6 +2300,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### public class CtiWebSocketHandler extends AbstractWebSocketHandler { 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● CtiWebSocketHandler 설명
 
@@ -2797,6 +2837,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.afterConnectionEstablished() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● afterConnectionEstablished() — 쉽게 설명
 
@@ -2863,6 +2905,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ###  위헤서 설명한 내용 중에 ".publishOn(boundedElastic) — 스레드 전환" 잘 이해가 안 돼.
+
+[↑ 목차](#목차)
 ```
 >> 질문
   1) 원래는 NIO 스레드인데 일반 스레드(boundedElastic 스레드)로 바꾼다?
@@ -2989,6 +3033,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### `subscribeOn` 이랑 `publishOn` 차이가 뭐야?
+
+[↑ 목차](#목차)
 ```
 ● subscribeOn vs publishOn 차이
 
@@ -3074,6 +3120,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.handleBinaryMessage() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● handleBinaryMessage() 쉽게 설명
 
@@ -3136,6 +3184,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### 아래 질문1,2 답변해줘.
+
+[↑ 목차](#목차)
 ```
 >> 질문
   public void afterConnectionEstablished(WebSocketSession session) {
@@ -3321,6 +3371,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.handleTextMessage() 아주 쉽게 설명해줘. 
+
+[↑ 목차](#목차)
 ```
 ● handleTextMessage() 쉽게 설명
 
@@ -3545,6 +3597,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.afterConnectionClosed() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● afterConnectionClosed() 쉽게 설명
 
@@ -3673,6 +3727,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.handleCallEnd() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● handleCallEnd() 쉽게 설명
 
@@ -3738,6 +3794,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.handleFinalStt() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● handleFinalStt() 쉽게 설명
 
@@ -3825,6 +3883,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.startNextSttSession() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● startNextSttSession() 쉽게 설명
 
@@ -3904,6 +3964,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.handleSttError() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● handleSttError() 쉽게 설명
 
@@ -3963,6 +4025,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.sendJson() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● sendJson() 쉽게 설명
 
@@ -4114,6 +4178,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### CtiWebSocketHandler.sendBinary() 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● sendBinary() 쉽게 설명
 
@@ -4174,6 +4240,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### `CtiWebSocketHandler` 전체 흐름 다시 정리해줘
+
+[↑ 목차](#목차)
 ```
 ● CtiWebSocketHandler 전체 흐름
 
@@ -4304,6 +4372,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### `startNextSttSession()` 랑 `afterConnectionEstablished()` 차이 정리해줘
+
+[↑ 목차](#목차)
 ```
 ● startNextSttSession() vs afterConnectionEstablished() 차이
 
@@ -4376,6 +4446,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ### RtzrWebSocketSttService.java 아주 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● RtzrWebSocketSttService 쉽게 설명
 
@@ -4525,6 +4597,8 @@ callRecordRepository.save(CallRecord.builder()
 ```
 
 ###  `refreshToken()` 아주 쉽게 설명해줘
+
+[↑ 목차](#목차)
 ```
 ● refreshToken() 쉽게 설명
 
@@ -4961,6 +5035,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### `buildWsUrl()` 아주 쉽게 설명해줘
+
+[↑ 목차](#목차)
 ```
 ● buildWsUrl() 쉽게 설명
 
@@ -5032,6 +5108,7 @@ Map<?, ?> response = webClient.post()
 
 ### RtzrWebSocketSttService.scheduleTokenRefresh() 쉽게 설명해줘.
 
+[↑ 목차](#목차)
 ```
 ● scheduleTokenRefresh() 쉽게 설명
 
@@ -5117,6 +5194,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### RtzrWebSocketSttService.recognize() 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● recognize() 쉽게 설명
 
@@ -5388,6 +5467,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### 다음의 질문에 답해줘.
+
+[↑ 목차](#목차)
 ```
 >> 질문
 1) 오케트라 WebSocket 콜백에서 Sinks.Many 로 Flux 구독해서 STT 로 데이터 들어오면 흘러가게하고 => public Flux<SttResult> recognize(Flux<byte[]> audioStream, String callId) {...
@@ -5470,6 +5551,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### startNextSttSession()에서도 생산/구독 누가 하는지 정리해줘
+
+[↑ 목차](#목차)
 ```
 ● startNextSttSession() 생산/구독 정리
 
@@ -5547,6 +5630,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### 그러면 Spring Flux 는 C++ CoRoutine 과 비슷한거네.
+
+[↑ 목차](#목차)
 ```
 ● 아닙니다. 비슷해 보이지만 다른 메커니즘입니다.
 
@@ -5665,6 +5750,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### GoogleCloudTtsService 클래스 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● GoogleCloudTtsService 쉽게 설명
 
@@ -5810,6 +5897,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### private synchronized String getAccessToken()  에서 synchronized 인 이유는 TTS 사용하는 여러 곳(통화)에서 getAccessToken() 을 공유해서 사용하기 위해서 필요한다. 맞어?
+
+[↑ 목차](#목차)
 ```
 ● "공유해서 사용"이라는 표현은 정확하지 않습니다. 더 구체적인 이유가 있습니다.
 
@@ -5871,6 +5960,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ###  "synthesize() 자체가 **인터페이스 시그니처부터 동기(byte[] 반환, Mono 아님)**라서 내부에서 block()을 씁니다." 잘 이해 안 돼! 'Mono 아님'이라고 해놓고 왜 코딩은 'bodyToMono(Map.class)' 이지?
+
+[↑ 목차](#목차)
 ```
 ● 설명이 부족했습니다. 정정하겠습니다.
 
@@ -5937,6 +6028,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### com.voicebot 패키지에 있는 주요 클래승 대한 분석은 대부분된 것 같은데. LLM-MODE-ANALYSIS.md 내용 보고 판단해줘. 충분한지? 더 할게 있는지?
+
+[↑ 목차](#목차)
 ```
 ● docs/LLM-MODE-ANALYSIS.md 전체(5938줄)를 다 읽었고, com.voicebot 패키지의 실제 클래스 29개와 대조해봤습니다.
 
@@ -5981,6 +6074,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### HTTP 파이프라인 본체 — CallController, CallHandler 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● CallController — 쉽게 설명
 
@@ -6308,6 +6403,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### Config 3종 — RedisConfig, WebClientConfig, WebSocketConfig 쉽게 설명해줘.
+
+[↑ 목차](#목차)
 ```
 ● Config 3종 — 한눈에 공통점부터
 
@@ -6509,6 +6606,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### docker 에 대해서 알고 싶어. image & container 관계. 주요 명령어와 의미, 존재 이유 등 근본적인 개념부터 설명. 그리고 container 생성 & 사용 후 삭제가 낫은지 너무 많아져서 지저분한 것 같기도 하고.
+
+[↑ 목차](#목차)
 ```
 ● 도커의 핵심 개념을 이 프로젝트(docker-compose.yml)에서 실제 쓰는 예시로 묶어서 설명할게요.
 
@@ -6606,6 +6705,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### docker images 결과인데 'vsc-voicebot-js-42468:devpod-' 시작하는 이미지가 왜 이리 많어?
+
+[↑ 목차](#목차)
 ```
 >> docker images 결과
 ❯ docker images 결과인데 'vsc-voicebot-js-42468:devpod-' 시작하는 이미지가 왜 이리 많어?
@@ -6718,6 +6819,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### rmi 의미?
+
+[↑ 목차](#목차)
 ```
 ● rmi = remove image. docker rmi <image>는 로컬에 받아둔(또는 빌드한) 이미지를 삭제하는 명령입니다.
 
@@ -6736,6 +6839,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### container names 은 어떻게 결정? 같은 이미지 사용해도 다른 경우가 있는지?
+
+[↑ 목차](#목차)
 ```
 ● Container 이름은 세 가지 방식 중 하나로 결정됩니다.
 
@@ -6786,6 +6891,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### 현재 devpod 띄울 때 docker-compose.yml 에 container_name 지정되 있지 않나? 왜 다르게 느끼지?
+
+[↑ 목차](#목차)
 ```
 ● 좋은 질문이에요. 둘이 완전히 다른 컨테이너라서 그렇습니다. .devcontainer/devcontainer.json을 확인해볼게요.
 
@@ -6836,6 +6943,8 @@ Map<?, ?> response = webClient.post()
 ```
 
 ### Host OS 에서 devpod 로 devcontainer 컨테이너 생성하고 그 개발환경에서 docker compose up 으로 실행해서 작업환경 까지 만들었어. 그러면 이건 DinD(Docker in Docker) 야. 그런데 devcontainer.json 에서 mounts 섹션에서 "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind" 설정해서 DooD(Docker out of Docker) 되는건가?
+
+[↑ 목차](#목차)
 ```
 ● 정확히 이해하셨습니다. 겉모양은 DinD처럼 보이지만 실제로는 DooD입니다.
 
@@ -7070,6 +7179,8 @@ DinD에서 --privileged가 필요한 이유 — 컨테이너 안에 새 Docker �
 
 ```
 ###  ".devcontainer/Dockerfile로 직접 docker build + docker run을 합니다. 이때 runArgs나 mounts는 지정돼 있지만 이름(--name)을 지정하는 옵션이 없습니다. 그래서 Docker가 랜덤 이름(priceless_goodall)을 붙인 겁니다." 내용 보면 runArgs나 mounts는 지정되어 있다는데 맞어? 안 보이는데
+
+[↑ 목차](#목차)
 ```
 ● 확인해볼게요, 파일을 다시 정확히 읽어서 줄 번호로 보여드리겠습니다.
 
@@ -7096,6 +7207,8 @@ DinD에서 --privileged가 필요한 이유 — 컨테이너 안에 새 Docker �
 ```
 
 ### 그건 .devcontainer/devcontainer.json 이지 않어? Dockerfile 라며?
+
+[↑ 목차](#목차)
 ```
 ● 맞습니다, 제가 부정확하게 말했어요. runArgs/mounts는 Dockerfile이 아니라 devcontainer.json에 있는 필드입니다. 둘의 역할이 다릅니다.
 
@@ -7131,6 +7244,8 @@ DinD에서 --privileged가 필요한 이유 — 컨테이너 안에 새 Docker �
 ```
 
 ### devcontainer.json 에 --name 지정한다면?
+
+[↑ 목차](#목차)
 ```
 ● runArgs는 docker run에 그대로 전달되는 옵션 배열이므로, --name도 똑같이 넣을 수 있습니다.
 
@@ -7156,6 +7271,8 @@ DinD에서 --privileged가 필요한 이유 — 컨테이너 안에 새 Docker �
 ```
 
 ### devcontainer.json에 추가 방법과  rebuild 방법 알려줘. 내가 할게.
+
+[↑ 목차](#목차)
 ```
 ● devpod CLI가 컨테이너 안에도 설치돼 있네요(Docker 소켓을 공유해서 호스트와 같은 데몬을 보고 있습니다). 정확한 rebuild 플래그를 --help로 확인해볼게요.
 
@@ -7218,6 +7335,7 @@ DinD에서 --privileged가 필요한 이유 — 컨테이너 안에 새 Docker �
 
 ### redis 는 volumn 없던데. 특성상 그때마다 메모리 기억해서 필요없는건가?
 
+[↑ 목차](#목차)
 ```
 ❯ 그래서 현 프로젝트는 docker 종료시 컨테이너를 지워도 상관 없다. 즉, docker compose down 해도 상관 없다. 맞어?
 
@@ -7261,6 +7379,7 @@ DinD에서 --privileged가 필요한 이유 — 컨테이너 안에 새 Docker �
 
 ### 아래 내용은 정리한다는건가?
 
+[↑ 목차](#목차)
 ```
 >> 명령어
 vscode ➜ /workspaces/voicebot-js (main) $ docker image prune -a
@@ -7298,6 +7417,8 @@ vscode ➜ /workspaces/voicebot-js (main) $
 ```
 
 ### frontend/nohup.out 왜 생긴거니?
+
+[↑ 목차](#목차)
 ```
 >> 명령어
 ❯ vscode ➜ /workspaces/voicebot-js (main) $ git status
