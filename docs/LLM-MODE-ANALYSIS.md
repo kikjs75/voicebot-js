@@ -7452,3 +7452,384 @@ vscode ➜ /workspaces/voicebot-js (main) $
 
 ```
 
+### Java 에서 자료구조 중 List 있는 설명해줘.
+
+[↑ 목차](#목차)
+```
+● Java List
+
+  List는 순서가 있고 중복을 허용하는 자료구조 인터페이스입니다. 이 프로젝트의 LlmService.java에도 List<Message>로 쓰이고 있습니다.
+
+  ---
+  구현체 3가지
+
+  ArrayList
+
+  내부적으로 배열로 구현됩니다.
+
+  List<String> list = new ArrayList<>();
+  list.add("a");   // 맨 끝에 추가 → O(1)
+  list.get(2);     // 인덱스로 바로 접근 → O(1)
+  list.remove(0);  // 앞쪽 삭제 → 뒤 요소 다 당겨야 함 → O(n)
+
+  ┌───────────────────────┬───────────────────────────┐
+  │         연산          │           속도            │
+  ├───────────────────────┼───────────────────────────┤
+  │ get(index)            │ O(1) ← 배열이라 바로 접근 │
+  ├───────────────────────┼───────────────────────────┤
+  │ add(끝)               │ O(1)                      │
+  ├───────────────────────┼───────────────────────────┤
+  │ add(중간), remove(앞) │ O(n) ← 뒤 요소 이동 필요  │
+  ├───────────────────────┼───────────────────────────┤
+  │ contains()            │ O(n)                      │
+  └───────────────────────┴───────────────────────────┘
+
+  언제 쓰나: 읽기/끝에 추가가 많을 때. 가장 자주 쓰임.
+
+  ---
+  LinkedList
+
+  내부적으로 이중 연결 리스트로 구현됩니다.
+
+  List<String> list = new LinkedList<>();
+  list.add("a");
+  list.addFirst("z");  // 맨 앞에 추가 → O(1)
+  list.get(2);         // 처음부터 따라가야 함 → O(n)
+
+  ┌───────────────────┬───────────────────────┐
+  │       연산        │         속도          │
+  ├───────────────────┼───────────────────────┤
+  │ get(index)        │ O(n) ← 링크 따라 순회 │
+  ├───────────────────┼───────────────────────┤
+  │ add/remove(앞·뒤) │ O(1) ← 포인터만 변경  │
+  ├───────────────────┼───────────────────────┤
+  │ add/remove(중간)  │ O(n) ← 위치 찾아야 함 │
+  └───────────────────┴───────────────────────┘
+
+  언제 쓰나: 앞뒤 삽입/삭제가 많을 때. Queue, Deque로도 쓸 수 있음.
+
+  ---
+  불변 List (Java 9+)
+
+  List<String> list = List.of("a", "b", "c");  // 수정 불가
+  list.add("d");  // ❌ UnsupportedOperationException
+
+  언제 쓰나: 변경할 필요 없는 상수 목록.
+
+  ---
+  주요 메서드
+
+  list.add("x")          // 끝에 추가
+  list.add(0, "x")       // 특정 인덱스에 삽입
+  list.get(0)            // 인덱스로 조회
+  list.set(0, "y")       // 특정 인덱스 값 교체
+  list.remove(0)         // 인덱스로 삭제
+  list.remove("x")       // 값으로 삭제
+  list.size()            // 크기
+  list.contains("x")     // 포함 여부
+  list.isEmpty()         // 비어있는지
+  list.indexOf("x")      // 첫 번째 위치
+  list.subList(1, 3)     // 부분 리스트
+
+  ---
+  이 프로젝트에서 쓰이는 방식
+
+  // LlmService.java
+  String chat(List<Message> messages, String callId);
+
+  대화 히스토리를 순서대로 쌓아서 Claude API에 전달할 때 List를 씁니다. 순서가 중요하고(role: user/assistant 교대), 인덱스 접근보다 순차
+  처리(forEach)가 많으므로 ArrayList가 적합합니다.
+
+  ---
+  한 줄 정리
+
+  ▎ 기본은 ArrayList. 앞뒤 삽입/삭제가 빈번하면 LinkedList. 읽기 전용이면 List.of().
+
+```
+
+### List.of() 역핢 및 의미
+
+[↑ 목차](#목차)
+```
+● List.of()
+
+  Java 9에서 추가된 불변 리스트를 한 줄에 만드는 팩토리 메서드입니다.
+
+  ---
+  기존 방식 vs List.of()
+
+  // Java 9 이전 — 3줄짜리 작업
+  List<String> list = new ArrayList<>();
+  list.add("사과");
+  list.add("배");
+
+  // Java 9 이후 — 한 줄로 해결
+  List<String> list = List.of("사과", "배");
+
+  ---
+  핵심 특성: 불변(Immutable)
+
+  List<String> list = List.of("사과", "배", "포도");
+
+  list.get(0);        // ✅ "사과"
+  list.size();        // ✅ 3
+
+  list.add("딸기");   // ❌ UnsupportedOperationException
+  list.remove(0);     // ❌ UnsupportedOperationException
+  list.set(0, "귤"); // ❌ UnsupportedOperationException
+
+  한 번 만들면 내용을 바꿀 수 없습니다.
+
+  ---
+  null 불허
+
+  List.of("a", null, "b");  // ❌ NullPointerException
+
+  ArrayList는 null을 허용하지만 List.of()는 거부합니다.
+
+  ---
+  언제 쓰나
+
+  변경할 이유가 없는 고정 데이터에 씁니다.
+
+  // 허용된 역할 목록 — 바뀔 이유가 없음
+  List<String> ROLES = List.of("user", "assistant", "system");
+
+  // 테스트용 고정 데이터
+  List<Message> messages = List.of(
+      new Message("user", "안녕하세요"),
+      new Message("assistant", "반갑습니다")
+  );
+
+  // 메서드에 임시 목록 넘길 때
+  llmService.chat(List.of(new Message("user", text)), callId);
+
+  ---
+  ArrayList와 비교
+
+  ┌───────────┬──────────────────────────┬───────────────┐
+  │           │    new ArrayList<>()     │   List.of()   │
+  ├───────────┼──────────────────────────┼───────────────┤
+  │ 수정      │ ✅ 가능                  │ ❌ 불가       │
+  ├───────────┼──────────────────────────┼───────────────┤
+  │ null 허용 │ ✅                       │ ❌            │
+  ├───────────┼──────────────────────────┼───────────────┤
+  │ 메모리    │ 더 사용 (여분 공간 확보) │ 최소한만 사용 │
+  ├───────────┼──────────────────────────┼───────────────┤
+  │ 용도      │ 동적으로 추가/삭제       │ 고정 데이터   │
+  └───────────┴──────────────────────────┴───────────────┘
+
+  ---
+  한 줄 요약
+
+  ▎ List.of()는 "이 리스트는 앞으로 바뀌지 않는다"는 의도를 코드로 표현하는 방법입니다. 실수로 수정하려 하면 런타임 에러가 나서 버그를 일찍
+  ▎ 잡을 수 있습니다.
+
+```
+
+### Java 에서 다른 자료구조도 알려줘.
+
+[↑ 목차](#목차)
+```
+● Java 컬렉션 전체 구조부터 보면 이해가 빠릅니다.
+
+  java.util.Collection
+  ├── List     — 순서 O, 중복 O  (이전에 설명)
+  ├── Set      — 순서 X, 중복 X
+  └── Queue    — 순서 O, 선입선출
+
+  java.util.Map  — Key-Value 쌍 (Collection 상속 아님)
+
+  ---
+  Set — 중복 없는 집합
+
+  HashSet
+
+  Set<String> set = new HashSet<>();
+  set.add("사과");
+  set.add("배");
+  set.add("사과");  // 무시됨
+
+  System.out.println(set.size());      // 2
+  System.out.println(set.contains("배")); // true (O(1))
+
+  - 순서 보장 없음
+  - 검색 O(1) — 가장 빠름
+  - 중복 제거가 목적일 때
+
+  LinkedHashSet
+
+  Set<String> set = new LinkedHashSet<>();
+  set.add("바나나");
+  set.add("사과");
+  set.add("배");
+  // 순서 유지: 바나나 → 사과 → 배
+
+  - 삽입 순서 유지 + 중복 제거
+
+  TreeSet
+
+  Set<Integer> set = new TreeSet<>();
+  set.add(5); set.add(1); set.add(3);
+  // 자동 정렬: 1, 3, 5
+
+  set.first();  // 1 (최솟값)
+  set.last();   // 5 (최댓값)
+
+  - 자동 정렬 (오름차순)
+  - 검색 O(log n)
+
+  ---
+  Map — Key-Value 쌍
+
+  HashMap
+
+  Map<String, Integer> map = new HashMap<>();
+  map.put("사과", 1000);
+  map.put("배", 2000);
+  map.put("사과", 1500);  // 덮어씀
+
+  map.get("사과");           // 1500
+  map.containsKey("배");     // true
+  map.getOrDefault("포도", 0); // 0 (없으면 기본값)
+
+  // 순회
+  for (Map.Entry<String, Integer> entry : map.entrySet()) {
+      System.out.println(entry.getKey() + " : " + entry.getValue());
+  }
+
+  - Key는 중복 불가, Value는 중복 가능
+  - 검색 O(1)
+  - 가장 자주 쓰는 Map
+
+  LinkedHashMap
+
+  Map<String, Integer> map = new LinkedHashMap<>();
+  // 삽입 순서 유지
+
+  TreeMap
+
+  Map<String, Integer> map = new TreeMap<>();
+  // Key 기준 자동 정렬
+  map.put("banana", 2);
+  map.put("apple", 1);
+  // 순서: apple → banana
+
+  ---
+  Queue / Deque — 줄 세우기
+
+  ArrayDeque — 범용 큐/스택
+
+  // Queue 처럼 (선입선출)
+  Deque<String> queue = new ArrayDeque<>();
+  queue.offer("첫번째");
+  queue.offer("두번째");
+  queue.poll();   // "첫번째" 꺼냄
+
+  // Stack 처럼 (후입선출)
+  Deque<String> stack = new ArrayDeque<>();
+  stack.push("첫번째");
+  stack.push("두번째");
+  stack.pop();    // "두번째" 꺼냄
+
+  - Queue와 Stack 둘 다 대체 가능
+  - Stack 클래스(레거시)보다 이걸 권장
+
+  PriorityQueue — 우선순위 큐
+
+  Queue<Integer> pq = new PriorityQueue<>();
+  pq.offer(5); pq.offer(1); pq.offer(3);
+
+  pq.poll();  // 1 (작은 것부터)
+  pq.poll();  // 3
+  pq.poll();  // 5
+
+  - 삽입 순서 무관, 작은 값이 먼저 나옴
+  - 큰 값 먼저 꺼내려면: new PriorityQueue<>(Collections.reverseOrder())
+
+  ---
+  한눈에 비교
+
+  ┌───────────────┬──────────┬───────┬──────────────────┬───────────┐
+  │   자료구조    │   순서   │ 중복  │       특징       │ 검색 속도 │
+  ├───────────────┼──────────┼───────┼──────────────────┼───────────┤
+  │ ArrayList     │ O        │ O     │ 인덱스 접근 빠름 │ O(n)      │
+  │ HashMap       │ X        │ Key X │ Key-Value        │ O(1)      │
+  ├───────────────┼──────────┼───────┼──────────────────┼───────────┤
+  │ TreeMap       │ Key정렬  │ Key X │ 정렬된 Map       │ O(log n)  │
+  ├───────────────┼──────────┼───────┼──────────────────┼───────────┤
+  │ ArrayDeque    │ O        │ O     │ Queue/Stack      │ O(1)      │
+  ├───────────────┼──────────┼───────┼──────────────────┼───────────┤
+  │ PriorityQueue │ 우선순위 │ O     │ 최솟값 먼저      │ O(log n)  │
+  └───────────────┴──────────┴───────┴──────────────────┴───────────┘
+
+  ---
+  이 프로젝트라면
+
+  // callId별 세션 관리 → HashMap
+  Map<String, CallSession> sessions = new HashMap<>();
+
+  // 처리 순서가 중요한 메시지 큐 → ArrayDeque
+  Deque<String> messageQueue = new ArrayDeque<>();
+
+  // 중복 없는 의도 목록 → HashSet
+  Set<String> intents = new HashSet<>();
+
+  ---
+  선택 기준 한 줄 요약
+
+  ▎ - 중복 제거 → HashSet
+  ▎ - Key로 빠르게 찾기 → HashMap
+  ▎ - 정렬 필요 → TreeSet / TreeMap
+  ▎ - 순서대로 꺼내기 → ArrayDeque
+  ▎ - 우선순위 → PriorityQueue
+```
+
+### 
+
+[↑ 목차](#목차)
+```
+```
+
+### 
+
+[↑ 목차](#목차)
+```
+```
+
+### 
+
+[↑ 목차](#목차)
+```
+```
+
+### 
+
+[↑ 목차](#목차)
+```
+```
+
+### 
+
+[↑ 목차](#목차)
+```
+```
+
+### 
+
+[↑ 목차](#목차)
+```
+```
+
+### 
+
+[↑ 목차](#목차)
+```
+```
+
+### 
+
+[↑ 목차](#목차)
+```
+```
+
